@@ -1,3 +1,5 @@
+import '../../core/utils/local_date.dart';
+import '../../core/utils/streak.dart';
 import '../../core/utils/virtual_email.dart';
 
 class Profile {
@@ -27,7 +29,19 @@ class Profile {
     return height != null && startWeight != null && targetWeight != null;
   }
 
-  String get title => titleForStreak(streakDays);
+  /// 화면에 보여 줄 스트릭. DB 값은 본인이 앱을 열 때만 0으로 정리되므로,
+  /// 다른 멤버가 볼 때도 마지막 출석이 오늘·어제가 아니면 끊긴 것으로 본다.
+  int get currentStreak {
+    final now = DateTime.now();
+    return reconciledStreak(
+      streakDays: streakDays,
+      lastAttendDate: lastAttendDate,
+      today: localDateString(now),
+      yesterday: localDateString(DateTime(now.year, now.month, now.day - 1)),
+    );
+  }
+
+  String get title => titleForStreak(currentStreak);
 
   factory Profile.fromMap(Map<String, dynamic> map) {
     return Profile(

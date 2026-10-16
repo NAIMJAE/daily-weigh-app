@@ -2,6 +2,8 @@ import 'package:daily_weigh/core/utils/points.dart';
 import 'package:daily_weigh/core/utils/storage_path.dart';
 import 'package:daily_weigh/core/utils/streak.dart';
 import 'package:daily_weigh/core/utils/weight.dart';
+import 'package:daily_weigh/data/models/daily_record.dart';
+import 'package:daily_weigh/data/models/profile.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -77,6 +79,30 @@ void main() {
       'user/2026-10-15.jpg',
     );
     expect(canonicalStoragePath('user/2026-10-15.jpg', 'body-photos'), 'user/2026-10-15.jpg');
+  });
+
+  test('같은 날의 눈바디와 식단 사진은 이미지 캐시 키가 다르다', () {
+    final record = DailyRecord.fromMap({
+      'id': 'r1',
+      'user_id': 'u1',
+      'record_date': '2026-10-16',
+      'body_photo_url': 'u1/2026-10-16.jpg',
+      'meal_photo_url': 'u1/2026-10-16.jpg',
+      'updated_at': '2026-10-16T05:00:00Z',
+    });
+    expect(record.bodyPhotoCacheKey, isNot(record.mealPhotoCacheKey));
+  });
+
+  test('다른 멤버가 볼 때도 끊긴 스트릭은 0으로 보이고 칭호가 없다', () {
+    const stale = Profile(
+      id: 'u1',
+      username: 'yuna',
+      nickname: '유나',
+      streakDays: 12,
+      lastAttendDate: '2026-01-01',
+    );
+    expect(stale.currentStreak, 0);
+    expect(stale.title, '');
   });
 
   test('체중은 0.1kg 단위로 반올림한다', () {

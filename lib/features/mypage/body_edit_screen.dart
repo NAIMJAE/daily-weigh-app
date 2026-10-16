@@ -47,12 +47,17 @@ class _BodyEditScreenState extends ConsumerState<BodyEditScreen> {
       _saving = true;
       _error = null;
     });
-    await ref.read(sessionProvider.notifier).updateBody(
-      height: height,
-      startWeight: start,
-      targetWeight: target,
-    );
-    if (mounted) Navigator.pop(context);
+    try {
+      await ref.read(sessionProvider.notifier).updateBody(height: height, startWeight: start, targetWeight: target);
+      if (mounted) Navigator.pop(context);
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _error = '$error';
+        });
+      }
+    }
   }
 
   @override
@@ -86,10 +91,7 @@ class _BodyEditScreenState extends ConsumerState<BodyEditScreen> {
             Text(_error!, style: const TextStyle(color: AppColors.danger)),
           ],
           const SizedBox(height: 20),
-          FilledButton(
-            onPressed: _saving ? null : _save,
-            child: Text(_saving ? '저장 중...' : '저장'),
-          ),
+          FilledButton(onPressed: _saving ? null : _save, child: Text(_saving ? '저장 중...' : '저장')),
         ],
       ),
     );

@@ -51,21 +51,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/onboarding', builder: (context, state) => const OnboardingScreen()),
       GoRoute(
         path: '/room/:userId',
-        builder: (context, state) => MemberRoomScreen(
-          userId: state.pathParameters['userId']!,
-        ),
+        builder: (context, state) => MemberRoomScreen(userId: state.pathParameters['userId']!),
       ),
       GoRoute(
         path: '/overlay/:userId',
-        builder: (context, state) => OverlayScreen(
-          userId: state.pathParameters['userId']!,
-        ),
+        builder: (context, state) => OverlayScreen(userId: state.pathParameters['userId']!),
       ),
       GoRoute(
         path: '/calendar/:userId',
-        builder: (context, state) => PhotoCalendarScreen(
-          userId: state.pathParameters['userId']!,
-        ),
+        builder: (context, state) => PhotoCalendarScreen(userId: state.pathParameters['userId']!),
       ),
       GoRoute(path: '/edit-body', builder: (context, state) => const BodyEditScreen()),
       StatefulShellRoute.indexedStack(
@@ -74,24 +68,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
         branches: [
           StatefulShellBranch(
-            routes: [
-              GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
-            ],
+            routes: [GoRoute(path: '/home', builder: (context, state) => const HomeScreen())],
           ),
           StatefulShellBranch(
-            routes: [
-              GoRoute(path: '/body', builder: (context, state) => const BodyScreen()),
-            ],
+            routes: [GoRoute(path: '/body', builder: (context, state) => const BodyScreen())],
           ),
           StatefulShellBranch(
-            routes: [
-              GoRoute(path: '/stats', builder: (context, state) => const StatsScreen()),
-            ],
+            routes: [GoRoute(path: '/stats', builder: (context, state) => const StatsScreen())],
           ),
           StatefulShellBranch(
-            routes: [
-              GoRoute(path: '/mypage', builder: (context, state) => const MyPageScreen()),
-            ],
+            routes: [GoRoute(path: '/mypage', builder: (context, state) => const MyPageScreen())],
           ),
         ],
       ),

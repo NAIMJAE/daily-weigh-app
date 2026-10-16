@@ -37,18 +37,21 @@ class DailyRecord {
   bool get hasWorkout => workoutKinds.isNotEmpty;
   bool get isRestOnly => isRestOnlyKinds(workoutKinds);
   bool get isLogged =>
-      weight != null ||
-      hasBodyPhoto ||
-      hasMealToday ||
-      hasWorkout ||
-      (memo != null && memo!.trim().isNotEmpty);
+      weight != null || hasBodyPhoto || hasMealToday || hasWorkout || (memo != null && memo!.trim().isNotEmpty);
 
   String get workoutSummary => workoutLabel(workoutKinds);
 
-  DailyRecord copyWith({
-    String? bodyPhotoUrl,
-    String? mealPhotoUrl,
-  }) {
+  // 서명 URL은 받을 때마다 바뀌므로 이미지 캐시는 저장 경로와 수정 시각으로 찾는다.
+  // 눈바디와 식단은 버킷만 다르고 경로(사용자/날짜.jpg)가 같으므로 버킷 이름을 키에 넣는다.
+  String? get bodyPhotoCacheKey => _cacheKey('body-photos', bodyPhotoPath);
+  String? get mealPhotoCacheKey => _cacheKey('meal-photos', mealPhotoPath);
+
+  String? _cacheKey(String bucket, String? path) {
+    if (!_present(path)) return null;
+    return '$bucket/$path#${updatedAt?.millisecondsSinceEpoch ?? 0}';
+  }
+
+  DailyRecord copyWith({String? bodyPhotoUrl, String? mealPhotoUrl}) {
     return DailyRecord(
       id: id,
       userId: userId,
@@ -78,9 +81,7 @@ class DailyRecord {
       workoutKinds: workoutKindsFrom(map['workout_kinds']),
       memo: map['memo'] as String?,
       pointsEarned: (map['points_earned'] as int?) ?? 0,
-      updatedAt: map['updated_at'] == null
-          ? null
-          : DateTime.tryParse(map['updated_at'] as String),
+      updatedAt: map['updated_at'] == null ? null : DateTime.tryParse(map['updated_at'] as String),
     );
   }
 }

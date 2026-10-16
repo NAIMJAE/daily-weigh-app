@@ -3,10 +3,7 @@ import '../models/profile.dart';
 import '../supabase/app_supabase.dart';
 
 class GroupMate {
-  const GroupMate({
-    required this.member,
-    required this.profile,
-  });
+  const GroupMate({required this.member, required this.profile});
 
   final GroupMember member;
   final Profile profile;
@@ -19,7 +16,7 @@ class GroupRepository {
         .from('group_members')
         .select('*, profiles(*)')
         .eq('group_id', groupId)
-        .order('joined_at');
+        .order('joined_at', ascending: true);
 
     final members = <GroupMate>[];
     for (final row in rows as List) {
@@ -36,57 +33,26 @@ class GroupRepository {
   }
 
   Future<void> renameGroup(String groupId, String name) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) throw StateError('그룹 이름을 입력하세요.');
     final client = requireSupabase();
-    await client.from('groups').update({'name': name.trim()}).eq('id', groupId);
+    await client.from('groups').update({'name': trimmed}).eq('id', groupId);
   }
 
-  Future<void> leaveGroup({
-    required Group group,
-    required String userId,
-  }) async {
+  Future<void> leaveGroup({required Group group, required String userId}) async {
     if (group.isPersonal) {
       throw StateError('개인 그룹은 나갈 수 없습니다.');
     }
+    // 방장 이관과 마지막 멤버의 그룹 삭제는 서버 함수가 한 번에 처리한다.
     final client = requireSupabase();
-    final members = await fetchMembers(group.id);
-    final remaining = members.where((m) => m.profile.id != userId).toList();
-
-    await client
-        .from('group_members')
-        .delete()
-        .eq('group_id', group.id)
-        .eq('user_id', userId);
-
-    if (remaining.isEmpty) {
-      await client.from('groups').delete().eq('id', group.id);
-      return;
-    }
-
-    final wasOwner = members.any(
-      (m) => m.profile.id == userId && m.member.isOwner,
-    );
-    if (wasOwner) {
-      remaining.sort((a, b) => a.member.joinedAt.compareTo(b.member.joinedAt));
-      await client
-          .from('group_members')
-          .update({'role': 'owner'})
-          .eq('id', remaining.first.member.id);
-    }
+    await client.rpc('leave_group', params: {'p_group_id': group.id});
   }
 
-  Future<void> kickMember({
-    required String groupId,
-    required String ownerId,
-    required String targetUserId,
-  }) async {
+  Future<void> kickMember({required String groupId, required String ownerId, required String targetUserId}) async {
     if (ownerId == targetUserId) {
       throw StateError('방장은 자신을 내보낼 수 없습니다.');
     }
     final client = requireSupabase();
-    await client
-        .from('group_members')
-        .delete()
-        .eq('group_id', groupId)
-        .eq('user_id', targetUserId);
+    await client.rpc('kick_member', params: {'p_group_id': groupId, 'p_user_id': targetUserId});
   }
 }

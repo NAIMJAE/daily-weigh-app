@@ -26,11 +26,7 @@ class AppConfig {
       } catch (_) {}
     }
 
-    supabaseUrl = defineUrl.isNotEmpty
-        ? defineUrl
-        : (dotenv.maybeGet('SUPABASE_URL') ?? '');
-    supabaseAnonKey = defineKey.isNotEmpty
-        ? defineKey
-        : (dotenv.maybeGet('SUPABASE_ANON_KEY') ?? '');
+    supabaseUrl = defineUrl.isNotEmpty ? defineUrl : (dotenv.maybeGet('SUPABASE_URL') ?? '');
+    supabaseAnonKey = defineKey.isNotEmpty ? defineKey : (dotenv.maybeGet('SUPABASE_ANON_KEY') ?? '');
   }
 }

@@ -11,11 +11,7 @@ import '../models/workout.dart';
 import '../supabase/app_supabase.dart';
 
 class PokeNotice {
-  const PokeNotice({
-    required this.id,
-    required this.senderName,
-    required this.createdAt,
-  });
+  const PokeNotice({required this.id, required this.senderName, required this.createdAt});
 
   final String id;
   final String senderName;
@@ -31,6 +27,14 @@ class RecordDraft {
   String? mealPhotoPath;
   String? existingBodyPath;
   String? existingMealPath;
+  // 미리보기용: 이미 올린 사진의 서명 URL과 캐시 키.
+  String? existingBodyUrl;
+  String? existingMealUrl;
+  String? existingBodyCacheKey;
+  String? existingMealCacheKey;
+  // 이미 올린 사진을 오늘 기록에서 뺀다 (파일은 스토리지에 둔다).
+  bool removeBody;
+  bool removeMeal;
 
   RecordDraft({
     this.weight = '',
@@ -41,6 +45,12 @@ class RecordDraft {
     this.mealPhotoPath,
     this.existingBodyPath,
     this.existingMealPath,
+    this.existingBodyUrl,
+    this.existingMealUrl,
+    this.existingBodyCacheKey,
+    this.existingMealCacheKey,
+    this.removeBody = false,
+    this.removeMeal = false,
   }) : kinds = kinds ?? {};
 
   factory RecordDraft.fromRecord(DailyRecord? record) {
@@ -51,19 +61,21 @@ class RecordDraft {
       kinds: {...?record?.workoutKinds},
       existingBodyPath: record?.bodyPhotoPath,
       existingMealPath: record?.mealPhotoPath,
+      existingBodyUrl: record?.bodyPhotoUrl,
+      existingMealUrl: record?.mealPhotoUrl,
+      existingBodyCacheKey: record?.bodyPhotoCacheKey,
+      existingMealCacheKey: record?.mealPhotoCacheKey,
     );
   }
+
+  bool get hasBody => bodyPhotoPath != null || (!removeBody && (existingBodyPath?.isNotEmpty ?? false));
+  bool get hasMeal => mealPhotoPath != null || (!removeMeal && (existingMealPath?.isNotEmpty ?? false));
 }
 
 class RecordRepository {
   Future<DailyRecord?> fetchForUserOn(String userId, String date) async {
     final client = requireSupabase();
-    final row = await client
-        .from('daily_records')
-        .select()
-        .eq('user_id', userId)
-        .eq('record_date', date)
-        .maybeSingle();
+    final row = await client.from('daily_records').select().eq('user_id', userId).eq('record_date', date).maybeSingle();
     if (row == null) return null;
     return hydrate(DailyRecord.fromMap(row));
   }
@@ -76,34 +88,55 @@ class RecordRepository {
   }
 
   Future<List<DailyRecord>> _hydrateAll(List<DailyRecord> records) async {
-    return [for (final record in records) await hydrate(record)];
+    final body = await _signAll('body-photos', [for (final record in records) record.bodyPhotoPath]);
+    final meal = await _signAll('meal-photos', [for (final record in records) record.mealPhotoPath]);
+    return [
+      for (final record in records)
+        record.copyWith(bodyPhotoUrl: body[record.bodyPhotoPath], mealPhotoUrl: meal[record.mealPhotoPath]),
+    ];
   }
+
+  static const _signedUrlSeconds = 60 * 60 * 24;
 
   Future<String?> signUrl(String bucket, String? path) async {
     if (path == null || path.isEmpty) return null;
     if (path.startsWith('http')) return path;
     final client = requireSupabase();
-    return client.storage.from(bucket).createSignedUrl(path, 60 * 60 * 24);
+    return client.storage.from(bucket).createSignedUrl(path, _signedUrlSeconds);
   }
 
+  /// 여러 사진의 서명 URL을 요청 한 번으로 받는다. 키는 저장 경로.
+  Future<Map<String, String>> _signAll(String bucket, List<String?> paths) async {
+    final result = <String, String>{};
+    final toSign = <String>{};
+    for (final path in paths) {
+      if (path == null || path.isEmpty) continue;
+      if (path.startsWith('http')) {
+        result[path] = path;
+      } else {
+        toSign.add(path);
+      }
+    }
+    if (toSign.isEmpty) return result;
+    final client = requireSupabase();
+    final signed = await client.storage.from(bucket).createSignedUrlsResult(toSign.toList(), _signedUrlSeconds);
+    // 파일이 없어 서명하지 못한 경로는 사진 없음으로 둔다.
+    for (final item in signed) {
+      if (item is SignedUrlSuccess) result[item.path] = item.signedUrl;
+    }
+    return result;
+  }
+
+  /// 홈 목록용. 사진 URL은 만들지 않는다 (사진 유무는 경로로 판단).
   Future<Map<String, DailyRecord>> fetchTodayForUsers(List<String> userIds) async {
     if (userIds.isEmpty) return {};
     final client = requireSupabase();
     final today = localDateString();
-    final rows = await client
-        .from('daily_records')
-        .select()
-        .eq('record_date', today)
-        .inFilter('user_id', userIds);
-    final mapped = {
+    final rows = await client.from('daily_records').select().eq('record_date', today).inFilter('user_id', userIds);
+    return {
       for (final row in rows as List)
         row['user_id'] as String: DailyRecord.fromMap(Map<String, dynamic>.from(row as Map)),
     };
-    final hydrated = <String, DailyRecord>{};
-    for (final entry in mapped.entries) {
-      hydrated[entry.key] = await hydrate(entry.value);
-    }
-    return hydrated;
   }
 
   Future<List<DailyRecord>> fetchForUser(String userId) async {
@@ -113,12 +146,10 @@ class RecordRepository {
         .select()
         .eq('user_id', userId)
         .order('record_date', ascending: false);
-    return _hydrateAll([
-      for (final row in rows as List)
-        DailyRecord.fromMap(Map<String, dynamic>.from(row as Map)),
-    ]);
+    return _hydrateAll([for (final row in rows as List) DailyRecord.fromMap(Map<String, dynamic>.from(row as Map))]);
   }
 
+  /// 차트·통계용. 사진 URL은 만들지 않는다.
   Future<List<DailyRecord>> fetchForUsers(List<String> userIds) async {
     if (userIds.isEmpty) return [];
     final client = requireSupabase();
@@ -126,17 +157,11 @@ class RecordRepository {
         .from('daily_records')
         .select()
         .inFilter('user_id', userIds)
-        .order('record_date');
-    return _hydrateAll([
-      for (final row in rows as List)
-        DailyRecord.fromMap(Map<String, dynamic>.from(row as Map)),
-    ]);
+        .order('record_date', ascending: true);
+    return [for (final row in rows as List) DailyRecord.fromMap(Map<String, dynamic>.from(row as Map))];
   }
 
-  Future<Map<String, double>> fetchPreviousWeights({
-    required List<String> userIds,
-    required String beforeDate,
-  }) async {
+  Future<Map<String, double>> fetchPreviousWeights({required List<String> userIds, required String beforeDate}) async {
     if (userIds.isEmpty) return {};
     final client = requireSupabase();
     final rows = await client
@@ -145,7 +170,7 @@ class RecordRepository {
         .inFilter('user_id', userIds)
         .lt('record_date', beforeDate)
         .not('weight', 'is', null)
-        .order('record_date');
+        .order('record_date', ascending: true);
     final latest = <String, double>{};
     for (final row in rows as List) {
       latest[row['user_id'] as String] = (row['weight'] as num).toDouble();
@@ -155,21 +180,14 @@ class RecordRepository {
 
   Future<Set<String>> fetchPokedUserIds({required String groupId}) async {
     final client = requireSupabase();
-    final start = '${localDateString()}T00:00:00';
-    final rows = await client
-        .from('pokes')
-        .select('receiver_id')
-        .eq('group_id', groupId)
-        .gte('created_at', start);
-    return {
-      for (final row in rows as List) row['receiver_id'] as String,
-    };
+    // 휴대폰 날짜의 자정을 UTC로 바꿔 보낸다. 시간대 없이 보내면 서버가 UTC 자정으로 읽는다.
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, now.day).toUtc().toIso8601String();
+    final rows = await client.from('pokes').select('receiver_id').eq('group_id', groupId).gte('created_at', start);
+    return {for (final row in rows as List) row['receiver_id'] as String};
   }
 
-  Future<List<PokeNotice>> fetchPokesFor({
-    required String groupId,
-    required String receiverId,
-  }) async {
+  Future<List<PokeNotice>> fetchPokesFor({required String groupId, required String receiverId}) async {
     final client = requireSupabase();
     final rows = await client
         .from('pokes')
@@ -182,16 +200,13 @@ class RecordRepository {
       for (final row in rows as List)
         PokeNotice(
           id: row['id'] as String,
-          createdAt: DateTime.parse(row['created_at'] as String),
+          createdAt: DateTime.parse(row['created_at'] as String).toLocal(),
           senderName: (row['sender'] as Map?)?['nickname'] as String? ?? '멤버',
         ),
     ];
   }
 
-  Future<DailyRecord?> previousWeightBefore({
-    required String userId,
-    required String date,
-  }) async {
+  Future<DailyRecord?> previousWeightBefore({required String userId, required String date}) async {
     final client = requireSupabase();
     final row = await client
         .from('daily_records')
@@ -215,24 +230,15 @@ class RecordRepository {
 
     final weight = roundWeight(draft.weight);
     final memo = draft.memo.trim();
-    var bodyPath = draft.existingBodyPath;
-    var mealPath = draft.existingMealPath;
+    // 창을 연 뒤 날짜가 바뀌었으면 어제 사진을 오늘로 옮기지 않도록 지금 오늘 기록에서 다시 읽는다.
+    var bodyPath = draft.removeBody ? null : existing?.bodyPhotoPath;
+    var mealPath = draft.removeMeal ? null : existing?.mealPhotoPath;
 
     if (draft.bodyPhotoPath != null) {
-      bodyPath = await _uploadPhoto(
-        userId: user.id,
-        date: today,
-        path: draft.bodyPhotoPath!,
-        bucket: 'body-photos',
-      );
+      bodyPath = await _uploadPhoto(userId: user.id, date: today, path: draft.bodyPhotoPath!, bucket: 'body-photos');
     }
     if (draft.mealPhotoPath != null) {
-      mealPath = await _uploadPhoto(
-        userId: user.id,
-        date: today,
-        path: draft.mealPhotoPath!,
-        bucket: 'meal-photos',
-      );
+      mealPath = await _uploadPhoto(userId: user.id, date: today, path: draft.mealPhotoPath!, bucket: 'meal-photos');
     }
 
     final restOnly = isRestOnly(draft.kinds);
@@ -249,7 +255,7 @@ class RecordRepository {
       throw StateError('체중, 눈바디, 식단, 운동, 메모 중 하나는 필요합니다.');
     }
 
-    final points = computePoints(input);
+    // points_earned, 지갑, 스트릭은 서버 트리거(daily_records_points / daily_records_wallet)가 계산한다.
     final payload = {
       'user_id': user.id,
       'record_date': today,
@@ -259,31 +265,22 @@ class RecordRepository {
       'workout_minutes': draft.kinds.isEmpty || restOnly ? null : draft.workoutMinutes,
       'workout_kinds': draft.kinds.isEmpty
           ? null
-          : [for (final kind in WorkoutKind.values) if (draft.kinds.contains(kind)) kind.dbValue],
+          : [
+              for (final kind in WorkoutKind.values)
+                if (draft.kinds.contains(kind)) kind.dbValue,
+            ],
       'memo': memo.isEmpty ? null : memo,
-      'points_earned': points,
-      'updated_at': DateTime.now().toIso8601String(),
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
     };
 
     await client.from('daily_records').upsert(payload, onConflict: 'user_id,record_date');
-
-    final previousPoints = existing?.pointsEarned ?? 0;
-    await _applyWalletAndStreak(
-      userId: user.id,
-      pointDelta: points - previousPoints,
-      today: today,
-    );
   }
 
   Future<void> poke({required String groupId, required String receiverId}) async {
     final client = requireSupabase();
     final senderId = client.auth.currentUser?.id;
     if (senderId == null) return;
-    await client.from('pokes').insert({
-      'group_id': groupId,
-      'sender_id': senderId,
-      'receiver_id': receiverId,
-    });
+    await client.from('pokes').insert({'group_id': groupId, 'sender_id': senderId, 'receiver_id': receiverId});
   }
 
   Future<void> addComment({
@@ -304,17 +301,14 @@ class RecordRepository {
     });
   }
 
-  Future<List<Map<String, dynamic>>> fetchComments({
-    required String groupId,
-    required String recordId,
-  }) async {
+  Future<List<Map<String, dynamic>>> fetchComments({required String groupId, required String recordId}) async {
     final client = requireSupabase();
     final rows = await client
         .from('comments')
         .select('*, profiles(nickname)')
         .eq('group_id', groupId)
         .eq('record_id', recordId)
-        .order('created_at');
+        .order('created_at', ascending: true);
     return [for (final row in rows as List) Map<String, dynamic>.from(row as Map)];
   }
 
@@ -336,43 +330,10 @@ class RecordRepository {
       throw StateError('사진을 압축하지 못했습니다.');
     }
     final objectPath = '$userId/$date.jpg';
-    await client.storage.from(bucket).uploadBinary(
-      objectPath,
-      compressed,
-      fileOptions: const FileOptions(upsert: true, contentType: 'image/jpeg'),
-    );
+    await client.storage
+        .from(bucket)
+        .uploadBinary(objectPath, compressed, fileOptions: const FileOptions(upsert: true, contentType: 'image/jpeg'));
     return objectPath;
-  }
-
-  Future<void> _applyWalletAndStreak({
-    required String userId,
-    required int pointDelta,
-    required String today,
-  }) async {
-    final client = requireSupabase();
-    final profile = await client
-        .from('profiles')
-        .select('wallet_points, streak_days, last_attend_date')
-        .eq('id', userId)
-        .single();
-
-    final last = profile['last_attend_date'] as String?;
-    final yesterday = localDateString(DateTime.now().subtract(const Duration(days: 1)));
-    var streak = (profile['streak_days'] as int?) ?? 0;
-    if (last == today) {
-      // already counted today
-    } else if (last == yesterday) {
-      streak += 1;
-    } else {
-      streak = 1;
-    }
-
-    await client.from('profiles').update({
-      'wallet_points': ((profile['wallet_points'] as int?) ?? 0) + pointDelta,
-      'streak_days': streak,
-      'last_attend_date': today,
-      'updated_at': DateTime.now().toIso8601String(),
-    }).eq('id', userId);
   }
 }
 

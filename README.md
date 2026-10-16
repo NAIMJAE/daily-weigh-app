@@ -25,7 +25,8 @@ Supabase 대시보드에서:
 
 1. Authentication > Email의 Confirm email을 OFF
 2. `supabase/schema.sql` 전체를 SQL Editor에서 실행
-3. 이미 예전 스키마를 넣었다면 `supabase/patch-drop-character.sql`도 실행
-4. Storage에 `body-photos`, `meal-photos` 버킷이 생겼는지 확인
+3. 이어서 `supabase/patch-permissions.sql` 실행 (점수·스트릭 트리거, 그룹 나가기·강퇴 함수, 권한)
+4. 이미 예전 스키마를 넣었다면 `supabase/patch-drop-character.sql`, `supabase/patch-groups-rls.sql`, `supabase/patch-permissions.sql` 순서로 실행
+5. Storage에 `body-photos`, `meal-photos` 버킷이 생겼는지 확인
 
 로그인은 웹과 같습니다. 아이디 `foo`는 `foo@dailyweigh.local`로 들어갑니다.

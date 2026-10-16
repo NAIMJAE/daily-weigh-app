@@ -12,8 +12,7 @@ DateTime parseLocalDate(String value) {
 }
 
 DateTime startOfWeekMonday(DateTime date) {
-  return DateTime(date.year, date.month, date.day)
-      .subtract(Duration(days: date.weekday - DateTime.monday));
+  return DateTime(date.year, date.month, date.day).subtract(Duration(days: date.weekday - DateTime.monday));
 }
 
 DateTime startOfMonth(DateTime date) => DateTime(date.year, date.month, 1);

@@ -32,8 +32,7 @@ int computePoints(RecordScoreInput input) {
   if (input.hasMealPhoto) points += PointRules.mealPhoto;
   if (input.hasWorkout) {
     points += PointRules.workout;
-    if (!input.isRestDay &&
-        input.workoutMinutes >= PointRules.longWorkoutMinutes) {
+    if (!input.isRestDay && input.workoutMinutes >= PointRules.longWorkoutMinutes) {
       points += PointRules.longWorkoutBonus;
     }
   }
