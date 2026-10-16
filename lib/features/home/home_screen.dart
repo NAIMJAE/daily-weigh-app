@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
 import '../../core/theme/app_text.dart';
+import '../../core/utils/local_date.dart';
 import '../../data/models/daily_record.dart';
 import '../../data/models/group.dart';
 import '../../data/models/profile.dart';
@@ -81,7 +82,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       SectionTitle(
-                        '체중 변화 그래프',
+                        '체중 변화 (최근 2주)',
                         icon: Icons.trending_down,
                         trailing: SegmentedToggle<bool>(
                           options: const [(false, '변화량'), (true, '절대체중')],
@@ -91,7 +92,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                       const SizedBox(height: 12),
                       WeightChart(
-                        records: data.history,
+                        records: _recentTwoWeeks(data.history),
                         allRecords: data.history,
                         profiles: profiles,
                         absolute: _absolute,
@@ -133,6 +134,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         },
       ),
     );
+  }
+
+  /// 홈 그래프는 오늘 포함 최근 14일만 그린다. 변화량의 0점은 전체 기록 기준 그대로다.
+  List<DailyRecord> _recentTwoWeeks(List<DailyRecord> history) {
+    final now = DateTime.now();
+    final from = localDateString(DateTime(now.year, now.month, now.day - 13));
+    return history.where((record) => record.recordDate.compareTo(from) >= 0).toList();
   }
 
   double? _latestWeight(List<DailyRecord> history, String userId) {
