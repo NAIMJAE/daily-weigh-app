@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/utils/local_date.dart';
 import '../../data/models/daily_record.dart';
 import '../../data/models/meal_entry.dart';
+import '../../data/repositories/routine_repository.dart';
 import '../home/home_controller.dart';
 import '../session/session_controller.dart';
 
@@ -27,3 +28,5 @@ final myMealEntriesProvider = FutureProvider<Map<String, MealEntry>>((ref) async
 String mealKey(String date, MealSlot slot) => '$date/${slot.dbValue}';
 
 bool isPastDay(DateTime date) => localDateString(date).compareTo(localDateString()) < 0;
+
+final routineRepositoryProvider = Provider<RoutineRepository>((ref) => RoutineRepository());

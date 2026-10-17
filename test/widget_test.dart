@@ -6,6 +6,7 @@ import 'package:daily_weigh/core/utils/weight.dart';
 import 'package:daily_weigh/data/models/daily_record.dart';
 import 'package:daily_weigh/data/models/meal_entry.dart';
 import 'package:daily_weigh/data/models/profile.dart';
+import 'package:daily_weigh/data/models/workout_routine.dart';
 import 'package:daily_weigh/features/records/write/meal_write_screen.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -143,5 +144,80 @@ void main() {
       reconciledStreak(streakDays: 5, lastAttendDate: '2026-10-18', today: '2026-10-17', yesterday: '2026-10-16'),
       5,
     );
+  });
+
+  test('루틴은 마지막으로 한 날의 다음 날을 추천하고, 끝이면 처음으로 돌아간다', () {
+    const routine = Routine(
+      id: 'r',
+      name: '3분할',
+      days: [
+        RoutineDay(id: 'a', position: 1, name: 'A 밀기'),
+        RoutineDay(id: 'b', position: 2, name: 'B 당기기'),
+        RoutineDay(id: 'c', position: 3, name: 'C 하체'),
+      ],
+    );
+    expect(routine.nextDay()?.id, 'a');
+    expect(routine.nextDay(lastDayId: 'a')?.id, 'b');
+    expect(routine.nextDay(lastDayId: 'c')?.id, 'a');
+    expect(routine.nextDay(lastDayId: 'deleted')?.id, 'a');
+  });
+
+  test('루틴 종목은 비어 있는 설정에 종목 기본값을 쓰고 목표를 짧게 보여 준다', () {
+    final item = RoutineItem.fromMap({
+      'id': 'i',
+      'position': 1,
+      'target_sets': 3,
+      'reps_min': 10,
+      'reps_max': 12,
+      'progression': null,
+      'rest_seconds': 120,
+      'exercises': {
+        'id': 'e',
+        'name': '랫풀다운',
+        'body_part': 'back',
+        'equipment': 'machine',
+        'measure': 'weight_reps',
+        'progression': 'double',
+        'increment': 2.5,
+        'rest_seconds': 90,
+      },
+    });
+    expect(item.progression, Progression.doubleProgression);
+    expect(item.increment, 2.5);
+    expect(item.restSeconds, 120);
+    expect(item.targetLabel, '3×10–12');
+    expect(Progression.doubleProgression.dbValue, 'double');
+  });
+
+  test('운동 기록은 체크한 세트로 볼륨과 요약을 만든다', () {
+    final session = WorkoutSession.fromMap({
+      'id': 's',
+      'user_id': 'u',
+      'record_date': '2026-10-18',
+      'day_name': 'B 당기기',
+      'duration_minutes': 52,
+      'session_sets': [
+        {'exercise_name': '랫풀다운', 'item_position': 1, 'set_number': 2, 'weight_kg': 45, 'reps': 10},
+        {'exercise_name': '랫풀다운', 'item_position': 1, 'set_number': 1, 'weight_kg': 45, 'reps': 10},
+        {'exercise_name': '바벨 로우', 'item_position': 2, 'set_number': 1, 'weight_kg': 50, 'reps': 8, 'done': false},
+      ],
+    });
+    expect(session.sets.first.setNumber, 1);
+    expect(session.doneSets, 2);
+    expect(session.volume, 900);
+    expect(session.summary, 'B 당기기 · 2종목 · 52분');
+  });
+
+  test('루틴 운동을 완료한 날은 운동한 날이고 휴식만 한 날이 아니다', () {
+    final record = DailyRecord.fromMap({
+      'id': 'r',
+      'user_id': 'u',
+      'record_date': '2026-10-18',
+      'has_session': true,
+      'session_minutes': 52,
+      'workout_kinds': ['rest'],
+    });
+    expect(record.hasWorkout, isTrue);
+    expect(record.isRestOnly, isFalse);
   });
 }

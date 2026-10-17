@@ -30,7 +30,7 @@ class WorkoutRecordScreen extends ConsumerWidget {
                 final hasWorkout = record?.hasWorkout ?? false;
                 final rest = record?.isRestOnly ?? false;
                 final worked = hasWorkout && !rest;
-                final minutes = record?.workoutMinutes;
+                final minutes = record?.sessionMinutes ?? record?.workoutMinutes;
                 return RecordDay(
                   mark: worked
                       ? DayMark.done
@@ -38,7 +38,7 @@ class WorkoutRecordScreen extends ConsumerWidget {
                       ? DayMark.rest
                       : (isPastDay(date) ? DayMark.missed : null),
                   lines: [
-                    if (hasWorkout) record!.workoutSummary,
+                    if (hasWorkout) record!.workoutSummary.isEmpty ? '루틴 운동' : record.workoutSummary,
                     if (worked && minutes != null) '$minutes분',
                   ],
                 );

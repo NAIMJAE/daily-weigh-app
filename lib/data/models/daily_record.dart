@@ -15,6 +15,8 @@ class DailyRecord {
     this.workoutKinds = const {},
     this.memo,
     this.hasMeal = false,
+    this.hasSession = false,
+    this.sessionMinutes,
     this.pointsEarned = 0,
     this.updatedAt,
   });
@@ -33,13 +35,17 @@ class DailyRecord {
 
   /// 끼니별 식단(meal_entries)이 하나라도 있는 날. 서버 트리거가 맞춘다.
   final bool hasMeal;
+
+  /// 루틴 운동(workout_sessions)을 완료한 날과 그 날 운동 시간 합. 서버 트리거가 맞춘다.
+  final bool hasSession;
+  final int? sessionMinutes;
   final int pointsEarned;
   final DateTime? updatedAt;
 
   bool get hasMealToday => hasMeal || _present(mealPhotoPath) || _present(mealPhotoUrl);
   bool get hasBodyPhoto => _present(bodyPhotoPath) || _present(bodyPhotoUrl);
-  bool get hasWorkout => workoutKinds.isNotEmpty;
-  bool get isRestOnly => isRestOnlyKinds(workoutKinds);
+  bool get hasWorkout => hasSession || workoutKinds.isNotEmpty;
+  bool get isRestOnly => !hasSession && isRestOnlyKinds(workoutKinds);
   bool get isLogged =>
       weight != null || hasBodyPhoto || hasMealToday || hasWorkout || (memo != null && memo!.trim().isNotEmpty);
 
@@ -69,6 +75,8 @@ class DailyRecord {
       workoutKinds: workoutKinds,
       memo: memo,
       hasMeal: hasMeal,
+      hasSession: hasSession,
+      sessionMinutes: sessionMinutes,
       pointsEarned: pointsEarned,
       updatedAt: updatedAt,
     );
@@ -86,6 +94,8 @@ class DailyRecord {
       workoutKinds: workoutKindsFrom(map['workout_kinds']),
       memo: map['memo'] as String?,
       hasMeal: (map['has_meal'] as bool?) ?? false,
+      hasSession: (map['has_session'] as bool?) ?? false,
+      sessionMinutes: map['session_minutes'] as int?,
       pointsEarned: (map['points_earned'] as int?) ?? 0,
       updatedAt: map['updated_at'] == null ? null : DateTime.tryParse(map['updated_at'] as String),
     );
