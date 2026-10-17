@@ -6,6 +6,7 @@ import 'package:daily_weigh/core/utils/weight.dart';
 import 'package:daily_weigh/data/models/daily_record.dart';
 import 'package:daily_weigh/data/models/meal_entry.dart';
 import 'package:daily_weigh/data/models/profile.dart';
+import 'package:daily_weigh/data/models/routine_draft.dart';
 import 'package:daily_weigh/data/models/workout_routine.dart';
 import 'package:daily_weigh/features/records/write/meal_write_screen.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -219,5 +220,25 @@ void main() {
     });
     expect(record.hasWorkout, isTrue);
     expect(record.isRestOnly, isFalse);
+  });
+
+  test('새로 넣은 종목은 기록 방식에 맞는 목표로 시작한다', () {
+    Exercise exercise(Measure measure, Progression progression) =>
+        Exercise(id: 'e', name: '종목', bodyPart: BodyPart.chest, measure: measure, progression: progression);
+    final machine = ItemDraft.fresh(exercise(Measure.weightReps, Progression.doubleProgression));
+    expect((machine.sets, machine.repsMin, machine.repsMax), (3, 10, 12));
+    final barbell = ItemDraft.fresh(exercise(Measure.weightReps, Progression.weight));
+    expect((barbell.repsMin, barbell.repsMax), (10, 10));
+    final plank = ItemDraft.fresh(exercise(Measure.time, Progression.time));
+    expect((plank.sets, plank.seconds, plank.repsMin), (3, 60, null));
+    final run = ItemDraft.fresh(exercise(Measure.timeDistance, Progression.none));
+    expect(run.toItem(1).targetLabel, '1×20분');
+  });
+
+  test('쉬는 시간을 짧게 보여 준다', () {
+    expect(restLabel(null), '없음');
+    expect(restLabel(45), '45초');
+    expect(restLabel(90), '1분 30초');
+    expect(restLabel(180), '3분');
   });
 }

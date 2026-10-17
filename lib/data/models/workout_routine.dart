@@ -53,6 +53,13 @@ extension MeasureX on Measure {
     Measure.timeDistance => 'time_distance',
   };
 
+  String get label => switch (this) {
+    Measure.weightReps => '무게 × 횟수',
+    Measure.reps => '횟수',
+    Measure.time => '시간',
+    Measure.timeDistance => '시간 + 거리',
+  };
+
   bool get usesWeight => this == Measure.weightReps;
   bool get usesReps => this == Measure.weightReps || this == Measure.reps;
   bool get usesTime => this == Measure.time || this == Measure.timeDistance;
@@ -384,4 +391,13 @@ class WorkoutSession {
       sets: sets,
     );
   }
+}
+
+/// 쉬는 시간 표시: '없음', '1분 30초', '2분'.
+String restLabel(int? seconds) {
+  if (seconds == null || seconds <= 0) return '없음';
+  final minutes = seconds ~/ 60;
+  final rest = seconds % 60;
+  if (minutes == 0) return '$rest초';
+  return rest == 0 ? '$minutes분' : '$minutes분 $rest초';
 }

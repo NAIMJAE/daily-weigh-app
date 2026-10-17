@@ -1,3 +1,4 @@
+import '../models/routine_draft.dart';
 import '../models/workout_routine.dart';
 import '../supabase/app_supabase.dart';
 
@@ -19,8 +20,8 @@ class RoutineRepository {
         .from('exercises')
         .select()
         .or('owner_id.is.null,owner_id.eq.$userId')
-        .order('sort_order')
-        .order('name');
+        .order('sort_order', ascending: true)
+        .order('name', ascending: true);
     return [for (final row in rows as List) Exercise.fromMap(Map<String, dynamic>.from(row as Map))];
   }
 
@@ -59,7 +60,7 @@ class RoutineRepository {
 
   Future<List<Routine>> fetchTemplates() async {
     final client = requireSupabase();
-    final rows = await client.from('routines').select(_routineTree).not('template_key', 'is', null).order('sort_order');
+    final rows = await client.from('routines').select(_routineTree).not('template_key', 'is', null).order('sort_order', ascending: true);
     return [for (final row in rows as List) Routine.fromMap(Map<String, dynamic>.from(row as Map))];
   }
 
@@ -72,7 +73,7 @@ class RoutineRepository {
         .select(_routineTree)
         .eq('owner_id', userId)
         .order('is_active', ascending: false)
-        .order('created_at');
+        .order('created_at', ascending: true);
     return [for (final row in rows as List) Routine.fromMap(Map<String, dynamic>.from(row as Map))];
   }
 
@@ -81,6 +82,54 @@ class RoutineRepository {
     final client = requireSupabase();
     final id = await client.rpc('copy_routine', params: {'p_source': sourceId, 'p_with_cardio': withCardio});
     return id as String;
+  }
+
+  /// 편집한 루틴을 저장한다. 빠진 날과 종목은 지우고, 남은 것과 새것은 순서대로 넣는다.
+  Future<void> saveRoutine(RoutineDraft draft, {required Routine original}) async {
+    final client = requireSupabase();
+    _requireUserId();
+    final keptDays = {for (final day in draft.days) day.id};
+    final keptItems = {
+      for (final day in draft.days)
+        for (final item in day.items) item.id,
+    };
+    final removedDays = [
+      for (final day in original.days)
+        if (!keptDays.contains(day.id)) day.id,
+    ];
+    final removedItems = [
+      for (final day in original.days)
+        for (final item in day.items)
+          if (!keptItems.contains(item.id)) item.id,
+    ];
+
+    await client
+        .from('routines')
+        .update({'name': draft.name.trim(), 'updated_at': DateTime.now().toUtc().toIso8601String()})
+        .eq('id', draft.id);
+    if (removedItems.isNotEmpty) {
+      await client.from('routine_items').delete().inFilter('id', removedItems);
+    }
+    if (removedDays.isNotEmpty) {
+      await client.from('routine_days').delete().inFilter('id', removedDays);
+    }
+    if (draft.days.isNotEmpty) {
+      await client.from('routine_days').upsert([
+        for (var i = 0; i < draft.days.length; i++)
+          {'id': draft.days[i].id, 'routine_id': draft.id, 'position': i + 1, 'name': draft.days[i].name.trim()},
+      ]);
+    }
+    final items = [
+      for (final day in draft.days)
+        for (var i = 0; i < day.items.length; i++) day.items[i].toRow(dayId: day.id, position: i + 1),
+    ];
+    if (items.isNotEmpty) {
+      await client.from('routine_items').upsert(items);
+    }
+  }
+
+  Future<void> deleteRoutine(String routineId) async {
+    await requireSupabase().from('routines').delete().eq('id', routineId);
   }
 
   Future<void> setActiveRoutine(String? routineId) async {
