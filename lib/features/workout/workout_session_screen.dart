@@ -134,10 +134,10 @@ class _WorkoutSessionScreenState extends ConsumerState<WorkoutSessionScreen> {
     setState(() => _saving = true);
     // 저장 뒤 세션을 다시 읽으면 라우터가 새로 그려지므로, 화면을 먼저 닫고 나서 기록을 다시 읽는다.
     final container = ProviderScope.containerOf(context, listen: false);
-    final messenger = ScaffoldMessenger.of(context);
     final router = GoRouter.of(context);
+    final String sessionId;
     try {
-      await _notifier.finish();
+      sessionId = await _notifier.finish();
     } catch (error) {
       if (mounted) {
         setState(() => _saving = false);
@@ -145,8 +145,8 @@ class _WorkoutSessionScreenState extends ConsumerState<WorkoutSessionScreen> {
       }
       return;
     }
-    messenger.showSnackBar(SnackBar(content: Text('운동을 저장했어요 · ${workout.doneSets}세트')));
-    if (router.canPop()) router.pop();
+    // 진행 화면 자리에 요약을 띄운다. 요약에서 확인을 누르면 운동을 시작한 화면으로 돌아간다.
+    router.pushReplacement('/workout/summary/$sessionId');
     container.read(recordRevisionProvider.notifier).bump();
     container.invalidate(homeSnapshotProvider);
     container.invalidate(myRoutinesProvider);

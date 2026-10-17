@@ -17,6 +17,41 @@ final mySessionsProvider = FutureProvider<List<WorkoutSession>>((ref) async {
   return ref.read(routineRepositoryProvider).fetchSessions(userId, limit: 60);
 });
 
+/// 내 운동 전부. 운동 기록 화면(주·일 보기)과 개인 최고 기록 비교에 쓴다.
+final allMySessionsProvider = FutureProvider<List<WorkoutSession>>((ref) async {
+  ref.watch(recordRevisionProvider);
+  final userId = (await ref.watch(sessionProvider.future)).userId;
+  if (userId == null) return [];
+  return ref.read(routineRepositoryProvider).fetchSessions(userId);
+});
+
+/// 날짜('YYYY-MM-DD')별 운동. 하루에 여러 번 할 수 있어 목록이다.
+final mySessionsByDateProvider = FutureProvider<Map<String, List<WorkoutSession>>>((ref) async {
+  final sessions = await ref.watch(allMySessionsProvider.future);
+  final byDate = <String, List<WorkoutSession>>{};
+  for (final session in sessions.reversed) {
+    byDate.putIfAbsent(session.recordDate, () => []).add(session);
+  }
+  return byDate;
+});
+
+class WorkoutSummary {
+  const WorkoutSummary({required this.session, required this.records});
+
+  final WorkoutSession session;
+  final List<PersonalRecord> records;
+}
+
+/// 운동 하나의 요약: 그 운동과 개인 최고 기록.
+final workoutSummaryProvider = FutureProvider.family<WorkoutSummary?, String>((ref, sessionId) async {
+  final sessions = await ref.watch(allMySessionsProvider.future);
+  final index = sessions.indexWhere((session) => session.id == sessionId);
+  if (index < 0) return null;
+  // 목록은 최근 운동부터라, 이 운동보다 앞선 기록은 그 뒤에 있는 것들이다.
+  final session = sessions[index];
+  return WorkoutSummary(session: session, records: personalRecords(session, sessions.sublist(index + 1)));
+});
+
 /// 진행 중인 운동. 바뀔 때마다 휴대폰에 저장해 앱이 꺼져도 이어 한다. 사람마다 따로 저장한다.
 class ActiveWorkoutNotifier extends AsyncNotifier<ActiveWorkout?> {
   String? _key;

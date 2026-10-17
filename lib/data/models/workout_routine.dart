@@ -401,3 +401,83 @@ String restLabel(int? seconds) {
   if (minutes == 0) return '$rest초';
   return rest == 0 ? '$minutes분' : '$minutes분 $rest초';
 }
+
+String _kg(double value) => value == value.roundToDouble() ? value.toInt().toString() : value.toString();
+
+extension SessionSetLabel on SessionSet {
+  /// 세트 한 칸 표시: '60kg × 8', '12회', '60초', '20분 · 3.2km'.
+  String get label {
+    if (weightKg != null) return '${_kg(weightKg!)}kg × ${reps ?? '-'}';
+    if (reps != null) return '$reps회';
+    if (seconds != null) {
+      final time = seconds! >= 60 && seconds! % 60 == 0 ? '${seconds! ~/ 60}분' : '$seconds초';
+      return distanceKm == null ? time : '$time · ${_kg(distanceKm!)}km';
+    }
+    if (distanceKm != null) return '${_kg(distanceKm!)}km';
+    return '-';
+  }
+
+  /// 개인 최고 기록을 비교하는 값과 단위. 무게가 있으면 무게, 없으면 횟수, 그다음 시간.
+  (double, String)? get bestValue {
+    if (weightKg != null) return (weightKg!, 'kg');
+    if (reps != null) return (reps!.toDouble(), '회');
+    if (seconds != null) return (seconds!.toDouble(), '초');
+    return null;
+  }
+}
+
+/// 이번 운동에서 지난 기록보다 늘어난 종목. 처음 하는 종목은 비교할 기록이 없어 넣지 않는다.
+class PersonalRecord {
+  const PersonalRecord({required this.exerciseName, required this.value, required this.previous, required this.unit});
+
+  final String exerciseName;
+  final double value;
+  final double previous;
+  final String unit;
+
+  String get label => '${_kg(value)}$unit';
+  String get previousLabel => '${_kg(previous)}$unit';
+}
+
+/// 체크한 세트 중 가장 좋은 값(무게, 없으면 횟수나 시간)이 지난 운동들의 최고보다 크면 개인 최고 기록이다.
+List<PersonalRecord> personalRecords(WorkoutSession session, List<WorkoutSession> history) {
+  String keyOf(SessionSet set) => set.exerciseId ?? set.exerciseName;
+  (double, String)? best(Iterable<SessionSet> sets) {
+    (double, String)? top;
+    for (final set in sets) {
+      final value = set.bestValue;
+      if (value == null || !set.done) continue;
+      if (top == null || value.$1 > top.$1) top = value;
+    }
+    return top;
+  }
+
+  final records = <PersonalRecord>[];
+  final seen = <String>{};
+  for (final set in session.sets) {
+    final key = keyOf(set);
+    if (!seen.add(key)) continue;
+    final now = best(session.sets.where((other) => keyOf(other) == key));
+    if (now == null) continue;
+    final before = best([
+      for (final past in history)
+        if (past.id != session.id)
+          for (final other in past.sets)
+            if (keyOf(other) == key && other.bestValue?.$2 == now.$2) other,
+    ]);
+    if (before != null && now.$1 > before.$1) {
+      records.add(PersonalRecord(exerciseName: set.exerciseName, value: now.$1, previous: before.$1, unit: now.$2));
+    }
+  }
+  return records;
+}
+
+/// 운동 하나의 세트를 종목별로 묶는다. 종목 순서는 운동한 순서다.
+List<(String, List<SessionSet>)> setsByExercise(WorkoutSession session) {
+  final groups = <int, (String, List<SessionSet>)>{};
+  for (final set in session.sets) {
+    groups.putIfAbsent(set.itemPosition, () => (set.exerciseName, <SessionSet>[])).$2.add(set);
+  }
+  final positions = groups.keys.toList()..sort();
+  return [for (final position in positions) groups[position]!];
+}

@@ -349,4 +349,49 @@ void main() {
       expect(workout.exercises.single.sets.single.seconds, 1200);
     });
   });
+
+  group('운동 요약', () {
+    WorkoutSession session(String id, String date, List<Map<String, dynamic>> sets) => WorkoutSession.fromMap({
+      'id': id,
+      'user_id': 'u',
+      'record_date': date,
+      'duration_minutes': 40,
+      'session_sets': sets,
+    });
+    Map<String, dynamic> set(String exercise, int position, int number, {num? kg, int? reps, int? seconds, bool done = true}) => {
+      'exercise_id': exercise,
+      'exercise_name': exercise,
+      'item_position': position,
+      'set_number': number,
+      'weight_kg': kg,
+      'reps': reps,
+      'seconds': seconds,
+      'done': done,
+    };
+
+    test('지난 최고보다 무거우면 개인 최고 기록이고, 체크하지 않은 세트와 처음 하는 종목은 뺀다', () {
+      final before = session('old', '2026-10-15', [set('벤치프레스', 1, 1, kg: 60, reps: 8), set('풀업', 2, 1, reps: 8)]);
+      final now = session('new', '2026-10-18', [
+        set('벤치프레스', 1, 1, kg: 62.5, reps: 6),
+        set('벤치프레스', 1, 2, kg: 70, reps: 1, done: false),
+        set('풀업', 2, 1, reps: 8),
+        set('플랭크', 3, 1, seconds: 60),
+      ]);
+      final records = personalRecords(now, [before]);
+      expect(records.length, 1);
+      expect((records.single.exerciseName, records.single.previousLabel, records.single.label), ('벤치프레스', '60kg', '62.5kg'));
+    });
+
+    test('세트는 운동한 종목 순서로 묶고 한 칸씩 짧게 보여 준다', () {
+      final now = session('s', '2026-10-18', [
+        set('플랭크', 2, 1, seconds: 60),
+        set('벤치프레스', 1, 2, kg: 60, reps: 8),
+        set('벤치프레스', 1, 1, kg: 60, reps: 8),
+      ]);
+      final groups = setsByExercise(now);
+      expect([for (final group in groups) group.$1], ['벤치프레스', '플랭크']);
+      expect(groups.first.$2.first.label, '60kg × 8');
+      expect(groups.last.$2.single.label, '1분');
+    });
+  });
 }
