@@ -461,4 +461,61 @@ void main() {
       expect([for (final set in workout.exercises.single.sets) set.weightKg], [60, 62.5]);
     });
   });
+
+  group('루틴 무게', () {
+    const bench = Exercise(id: 'bench', name: '벤치프레스', bodyPart: BodyPart.chest, measure: Measure.weightReps, progression: Progression.weight, increment: 2.5);
+    final lastTime = WorkoutSession.fromMap({
+      'id': 's',
+      'user_id': 'u',
+      'record_date': '2026-10-16',
+      'duration_minutes': 40,
+      'created_at': '2026-10-16T11:00:00Z',
+      'session_sets': [
+        {'exercise_id': 'bench', 'exercise_name': '벤치프레스', 'item_position': 1, 'set_number': 1, 'weight_kg': 60, 'reps': 8},
+      ],
+    });
+    RoutineItem item({double? weight, String? changed}) => RoutineItem.fromMap({
+      'id': 'i',
+      'position': 1,
+      'target_sets': 2,
+      'reps_min': 8,
+      'reps_max': 8,
+      'target_weight': weight,
+      'weight_updated_at': changed,
+      'exercises': {'id': 'bench', 'name': '벤치프레스', 'body_part': 'chest', 'measure': 'weight_reps', 'progression': 'weight', 'increment': 2.5},
+    });
+    List<double?> weights(RoutineItem routineItem) => [
+      for (final set in ActiveWorkout.fromDay(
+        routine: Routine(id: 'r', name: '루틴', days: [RoutineDay(id: 'a', position: 1, name: 'A', items: [routineItem])]),
+        day: RoutineDay(id: 'a', position: 1, name: 'A', items: [routineItem]),
+        recordDate: '2026-10-18',
+        live: true,
+        history: [lastTime],
+      ).exercises.single.sets)
+        set.weightKg,
+    ];
+
+    test('운동 뒤에 루틴 무게를 고쳤으면 루틴 무게로 채우고 증량 제안은 하지 않는다', () {
+      final changed = item(weight: 70, changed: '2026-10-17T09:00:00Z');
+      expect(weights(changed), [70, 70]);
+      expect(routineWeightIsNewer(changed, lastTime), isTrue);
+    });
+
+    test('루틴 무게를 고친 뒤에 운동했으면 지난번 무게로 채운다', () {
+      expect(weights(item(weight: 50, changed: '2026-10-15T09:00:00Z')), [60, 60]);
+    });
+
+    test('고친 시각이 없으면(복사한 루틴) 지난번 무게가 앞선다', () {
+      expect(weights(item(weight: 50)), [60, 60]);
+    });
+
+    test('편집에서 무게를 바꾼 종목만 고친 시각을 새로 남긴다', () {
+      final kept = ItemDraft.fromItem(item(weight: 60, changed: '2026-10-15T09:00:00Z'));
+      expect(kept.toRow(dayId: 'a', position: 1)['weight_updated_at'], '2026-10-15T09:00:00.000Z');
+      final edited = ItemDraft.fromItem(item(weight: 60))..weight = 65;
+      expect(edited.toRow(dayId: 'a', position: 1)['weight_updated_at'], isNotNull);
+      final fresh = ItemDraft.fresh(bench);
+      expect(fresh.toRow(dayId: 'a', position: 1)['weight_updated_at'], isNull);
+    });
+  });
 }

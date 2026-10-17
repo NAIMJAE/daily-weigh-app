@@ -85,7 +85,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/workout/routines/new', builder: (context, state) => const TemplatePickerScreen()),
       GoRoute(
         path: '/workout/routines/:id',
-        builder: (context, state) => RoutineEditorScreen(routineId: state.pathParameters['id']!),
+        builder: (context, state) => RoutineEditorScreen(
+          routineId: state.pathParameters['id']!,
+          fresh: state.uri.queryParameters['fresh'] == '1',
+        ),
       ),
       GoRoute(
         path: '/write/meal',

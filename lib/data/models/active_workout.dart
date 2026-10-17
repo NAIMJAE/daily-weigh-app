@@ -30,7 +30,14 @@ class ActiveWorkout {
       routineDayId: day.id,
       dayName: day.name,
       startedAt: live ? (now ?? DateTime.now()) : null,
-      exercises: [for (final item in day.items) ActiveExercise.fromItem(item, lastSetsFor(item.exercise.id, history))],
+      exercises: [
+        for (final item in day.items)
+          ActiveExercise.fromItem(
+            item,
+            lastSetsFor(item.exercise.id, history),
+            routineWeightFirst: routineWeightIsNewer(item, lastSessionFor(item.exercise.id, history)),
+          ),
+      ],
     );
   }
 
@@ -103,14 +110,29 @@ class ActiveWorkout {
   }
 }
 
-/// 이 종목을 가장 최근에 한 운동의 세트. 없으면 빈 목록.
-List<SessionSet> lastSetsFor(String exerciseId, List<WorkoutSession> history) {
+/// 이 종목을 가장 최근에 한 운동. 없으면 null.
+WorkoutSession? lastSessionFor(String exerciseId, List<WorkoutSession> history) {
   final sessions = [...history]..sort((a, b) => b.recordDate.compareTo(a.recordDate));
   for (final session in sessions) {
-    final sets = session.sets.where((set) => set.exerciseId == exerciseId).toList();
-    if (sets.isNotEmpty) return sets;
+    if (session.sets.any((set) => set.exerciseId == exerciseId)) return session;
   }
-  return const [];
+  return null;
+}
+
+/// 이 종목을 가장 최근에 한 운동의 세트. 없으면 빈 목록.
+List<SessionSet> lastSetsFor(String exerciseId, List<WorkoutSession> history) {
+  final session = lastSessionFor(exerciseId, history);
+  if (session == null) return const [];
+  return session.sets.where((set) => set.exerciseId == exerciseId).toList();
+}
+
+/// 루틴 무게를 지난번 운동보다 나중에 고쳤으면 다음 운동은 루틴 무게로 채운다.
+/// 고친 시각이 없으면(템플릿·친구 루틴에서 복사한 직후 포함) 지난번 운동 무게가 앞선다.
+bool routineWeightIsNewer(RoutineItem item, WorkoutSession? last) {
+  final changed = item.weightUpdatedAt;
+  if (item.targetWeight == null || changed == null) return false;
+  final done = last?.createdAt;
+  return done == null || changed.isAfter(done);
 }
 
 class ActiveExercise {
@@ -126,9 +148,11 @@ class ActiveExercise {
     this.lastSummary,
   });
 
-  factory ActiveExercise.fromItem(RoutineItem item, List<SessionSet> last) {
+  /// [routineWeightFirst]면 지난번 값 대신 루틴 무게와 목표 횟수로 채운다. '지난번' 표시는 그대로 남긴다.
+  factory ActiveExercise.fromItem(RoutineItem item, List<SessionSet> last, {bool routineWeightFirst = false}) {
     final exercise = item.exercise;
     final targetReps = item.repsMin ?? item.repsMax;
+    final fillFrom = routineWeightFirst ? const <SessionSet>[] : last;
     return ActiveExercise(
       exerciseId: exercise.id,
       name: exercise.name,
@@ -141,7 +165,7 @@ class ActiveExercise {
       sets: [
         for (var i = 0; i < item.targetSets; i++)
           ActiveSet.prefilled(
-            last: last.isEmpty ? null : (i < last.length ? last[i] : last.last),
+            last: fillFrom.isEmpty ? null : (i < fillFrom.length ? fillFrom[i] : fillFrom.last),
             targetWeight: item.targetWeight,
             targetReps: targetReps,
             targetSeconds: item.targetSeconds,
@@ -418,6 +442,8 @@ class ProgressionSuggestion {
 List<ProgressionSuggestion> suggestProgressions(RoutineDay day, List<WorkoutSession> history) {
   final suggestions = <ProgressionSuggestion>[];
   for (var i = 0; i < day.items.length; i++) {
+    // 지난 운동 뒤에 루틴 무게를 직접 고쳤으면 그 무게를 따르고 제안하지 않는다.
+    if (routineWeightIsNewer(day.items[i], lastSessionFor(day.items[i].exercise.id, history))) continue;
     final suggestion = suggestFor(day.items[i], lastSetsFor(day.items[i].exercise.id, history), i);
     if (suggestion != null) suggestions.add(suggestion);
   }

@@ -31,7 +31,7 @@ class _TemplatePickerScreenState extends ConsumerState<TemplatePickerScreen> {
     try {
       final newId = await ref.read(routineRepositoryProvider).copyRoutine(id, withCardio: _withCardio);
       refreshRoutines(ref);
-      if (mounted) context.pushReplacement('/workout/routines/$newId');
+      if (mounted) context.pushReplacement('/workout/routines/$newId?fresh=1');
     } catch (error) {
       if (mounted) showErrorSnack(context, error);
     } finally {

@@ -145,6 +145,7 @@ class RoutineItem {
     this.progressionOverride,
     this.incrementOverride,
     this.restSecondsOverride,
+    this.weightUpdatedAt,
   });
 
   final String id;
@@ -159,6 +160,9 @@ class RoutineItem {
   final Progression? progressionOverride;
   final double? incrementOverride;
   final int? restSecondsOverride;
+
+  /// 루틴에서 무게를 고친 시각. 지난번 운동보다 나중이면 다음 운동은 루틴 무게로 채운다.
+  final DateTime? weightUpdatedAt;
 
   Progression get progression => progressionOverride ?? exercise.progression;
   double? get increment => incrementOverride ?? exercise.increment;
@@ -200,6 +204,7 @@ class RoutineItem {
       progressionOverride: progressionFrom(map['progression']),
       incrementOverride: _double(map['increment']),
       restSecondsOverride: map['rest_seconds'] as int?,
+      weightUpdatedAt: map['weight_updated_at'] == null ? null : DateTime.tryParse(map['weight_updated_at'] as String),
     );
   }
 }
@@ -343,6 +348,7 @@ class WorkoutSession {
     this.startedAt,
     this.finishedAt,
     this.note,
+    this.createdAt,
     this.sets = const [],
   });
 
@@ -356,6 +362,9 @@ class WorkoutSession {
   final DateTime? finishedAt;
   final int durationMinutes;
   final String? note;
+
+  /// 저장한 시각. 루틴 무게를 고친 시각과 비교한다.
+  final DateTime? createdAt;
   final List<SessionSet> sets;
 
   int get doneSets => sets.where((set) => set.done).length;
@@ -388,6 +397,7 @@ class WorkoutSession {
       finishedAt: time(map['finished_at']),
       durationMinutes: (map['duration_minutes'] as int?) ?? 0,
       note: map['note'] as String?,
+      createdAt: time(map['created_at']),
       sets: sets,
     );
   }

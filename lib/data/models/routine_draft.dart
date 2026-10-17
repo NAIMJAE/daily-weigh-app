@@ -15,7 +15,8 @@ class ItemDraft {
     this.progression,
     this.increment,
     this.restSeconds,
-  });
+    this.weightUpdatedAt,
+  }) : _savedWeight = weight;
 
   /// 새로 넣은 종목의 목표 기본값. 기록 방식에 맞춘다.
   factory ItemDraft.fresh(Exercise exercise) {
@@ -48,6 +49,7 @@ class ItemDraft {
       progression: item.progressionOverride,
       increment: item.incrementOverride,
       restSeconds: item.restSecondsOverride,
+      weightUpdatedAt: item.weightUpdatedAt,
     );
   }
 
@@ -65,6 +67,12 @@ class ItemDraft {
   double? increment;
   int? restSeconds;
 
+  /// 루틴에서 무게를 마지막으로 고친 시각. 처음 읽은 무게와 달라지면 저장할 때 지금 시각으로 바뀐다.
+  final DateTime? weightUpdatedAt;
+
+  /// 편집을 시작할 때의 무게. 저장할 때 지금 무게와 비교한다.
+  final double? _savedWeight;
+
   RoutineItem toItem(int position) => RoutineItem(
     id: id,
     position: position,
@@ -78,6 +86,7 @@ class ItemDraft {
     progressionOverride: progression,
     incrementOverride: increment,
     restSecondsOverride: restSeconds,
+    weightUpdatedAt: weightUpdatedAt,
   );
 
   Map<String, dynamic> toRow({required String dayId, required int position}) => {
@@ -94,6 +103,8 @@ class ItemDraft {
     'progression': progression?.dbValue,
     'increment': increment,
     'rest_seconds': restSeconds,
+    // 모든 줄에 같은 칸을 보내야 한다. 빠진 칸은 비워진다.
+    'weight_updated_at': (weight != _savedWeight ? DateTime.now() : weightUpdatedAt)?.toUtc().toIso8601String(),
   };
 }
 

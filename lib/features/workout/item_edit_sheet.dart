@@ -213,9 +213,9 @@ class _ItemEditorState extends State<_ItemEditor> {
                     const SizedBox(height: 12),
                     _NumberField(
                       controller: _weight,
-                      label: '시작 무게 (선택)',
+                      label: '무게 (선택)',
                       suffix: 'kg',
-                      hint: '비우면 첫 운동에서 적은 무게를 써요',
+                      hint: '비우면 지난번 운동 무게를 써요',
                     ),
                   ],
                   const SizedBox(height: 20),

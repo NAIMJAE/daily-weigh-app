@@ -17,9 +17,12 @@ import 'workout_controller.dart';
 
 /// 루틴 편집: 이름, 날(순서·이름·추가·삭제), 날의 종목(추가·목표·순서·빼기). 저장을 눌러야 반영된다.
 class RoutineEditorScreen extends ConsumerStatefulWidget {
-  const RoutineEditorScreen({super.key, required this.routineId});
+  const RoutineEditorScreen({super.key, required this.routineId, this.fresh = false});
 
   final String routineId;
+
+  /// 템플릿에서 막 만든 루틴. 시작 무게를 넣으라는 안내를 보여 주고 빈 무게 칸을 강조한다.
+  final bool fresh;
 
   @override
   ConsumerState<RoutineEditorScreen> createState() => _RoutineEditorScreenState();
@@ -27,6 +30,8 @@ class RoutineEditorScreen extends ConsumerStatefulWidget {
 
 class _RoutineEditorScreenState extends ConsumerState<RoutineEditorScreen> {
   final _name = TextEditingController();
+  // 종목 줄의 kg 칸. 편집 시트에서 무게를 고치면 이 값도 맞춘다.
+  final _weights = <String, TextEditingController>{};
   Routine? _original;
   RoutineDraft? _draft;
   var _dirty = false;
@@ -35,8 +40,19 @@ class _RoutineEditorScreenState extends ConsumerState<RoutineEditorScreen> {
   @override
   void dispose() {
     _name.dispose();
+    for (final controller in _weights.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
+
+  static String _kg(double? value) {
+    if (value == null) return '';
+    return value == value.roundToDouble() ? value.toInt().toString() : value.toString();
+  }
+
+  TextEditingController _weightFor(ItemDraft item) =>
+      _weights.putIfAbsent(item.id, () => TextEditingController(text: _kg(item.weight)));
 
   void _change(VoidCallback update) {
     setState(() {
@@ -110,7 +126,7 @@ class _RoutineEditorScreenState extends ConsumerState<RoutineEditorScreen> {
     );
     switch (action) {
       case ItemAction.saved:
-        _change(() {});
+        _change(() => _weightFor(item).text = _kg(item.weight));
       case ItemAction.moveUp:
         _change(() => day.items.insert(index - 1, day.items.removeAt(index)));
       case ItemAction.moveDown:
@@ -237,6 +253,30 @@ class _RoutineEditorScreenState extends ConsumerState<RoutineEditorScreen> {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.section),
+                  if (widget.fresh) ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.accentSoft,
+                        borderRadius: BorderRadius.circular(AppRadius.tile),
+                        border: Border.all(color: AppColors.chipFill),
+                      ),
+                      child: const Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.scale_outlined, size: 18, color: AppColors.accent),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '종목마다 kg 칸에 지금 드는 무게를 넣어 두면 첫 운동부터 세트에 채워져요. 비워 두면 첫 운동에서 적은 무게를 다음부터 써요.',
+                              style: TextStyle(fontSize: 12.5, height: 1.4, color: AppColors.ink),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.section),
+                  ],
                   Text(
                     draft.days.isEmpty
                         ? '날을 하나 이상 추가해 주세요.'
@@ -254,6 +294,9 @@ class _RoutineEditorScreenState extends ConsumerState<RoutineEditorScreen> {
                       onRemove: () => _removeDay(draft.days[i]),
                       onAddItem: () => _addItem(draft.days[i]),
                       onEditItem: (index) => _editItem(draft.days[i], index),
+                      weightFor: _weightFor,
+                      onWeightChanged: (item, value) => _change(() => item.weight = double.tryParse(value.trim())),
+                      highlightEmpty: widget.fresh,
                     ),
                     const SizedBox(height: AppSpacing.section),
                   ],
@@ -282,6 +325,9 @@ class _DayCard extends StatelessWidget {
     required this.onRemove,
     required this.onAddItem,
     required this.onEditItem,
+    required this.weightFor,
+    required this.onWeightChanged,
+    required this.highlightEmpty,
   });
 
   final DayDraft day;
@@ -292,6 +338,9 @@ class _DayCard extends StatelessWidget {
   final VoidCallback onRemove;
   final VoidCallback onAddItem;
   final ValueChanged<int> onEditItem;
+  final TextEditingController Function(ItemDraft item) weightFor;
+  final void Function(ItemDraft item, String value) onWeightChanged;
+  final bool highlightEmpty;
 
   @override
   Widget build(BuildContext context) {
@@ -344,7 +393,14 @@ class _DayCard extends StatelessWidget {
               child: Text('아직 종목이 없어요.', style: AppText.caption),
             ),
           for (var i = 0; i < day.items.length; i++)
-            _ItemRow(item: day.items[i], index: i, onTap: () => onEditItem(i)),
+            _ItemRow(
+              item: day.items[i],
+              index: i,
+              onTap: () => onEditItem(i),
+              weight: weightFor(day.items[i]),
+              onWeightChanged: (value) => onWeightChanged(day.items[i], value),
+              highlightEmpty: highlightEmpty,
+            ),
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
@@ -360,18 +416,30 @@ class _DayCard extends StatelessWidget {
 }
 
 class _ItemRow extends StatelessWidget {
-  const _ItemRow({required this.item, required this.index, required this.onTap});
+  const _ItemRow({
+    required this.item,
+    required this.index,
+    required this.onTap,
+    required this.weight,
+    required this.onWeightChanged,
+    required this.highlightEmpty,
+  });
 
   final ItemDraft item;
   final int index;
   final VoidCallback onTap;
+  final TextEditingController weight;
+  final ValueChanged<String> onWeightChanged;
+
+  /// 무게를 아직 넣지 않은 kg 칸을 강조한다 (템플릿에서 막 만든 루틴).
+  final bool highlightEmpty;
 
   @override
   Widget build(BuildContext context) {
     final shown = item.toItem(index + 1);
     final rest = shown.restSeconds;
+    final empty = item.weight == null;
     final detail = [
-      if (item.weight != null) '${item.weight}kg',
       if (rest != null && rest > 0) '쉬기 ${restLabel(rest)}',
       if (shown.progression != Progression.none) shown.progression.label,
     ].join(' · ');
@@ -395,6 +463,33 @@ class _ItemRow extends StatelessWidget {
                 ],
               ),
             ),
+            // 무게를 쓰는 종목은 시트를 열지 않고 바로 kg 을 적는다.
+            if (item.exercise.measure.usesWeight) ...[
+              SizedBox(
+                width: 84,
+                child: TextField(
+                  controller: weight,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  textAlign: TextAlign.right,
+                  style: AppText.number(size: 14),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    hintText: '0',
+                    hintStyle: AppText.number(size: 14, weight: FontWeight.w500, color: AppColors.line),
+                    suffixText: 'kg',
+                    suffixStyle: AppText.caption,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
+                    fillColor: highlightEmpty && empty ? AppColors.accentSoft : AppColors.canvas,
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppRadius.chip),
+                      borderSide: BorderSide(color: highlightEmpty && empty ? AppColors.accent : AppColors.line),
+                    ),
+                  ),
+                  onChanged: onWeightChanged,
+                ),
+              ),
+              const SizedBox(width: 10),
+            ],
             NumText(shown.targetLabel, style: AppText.number(size: 13)),
             const SizedBox(width: 4),
             const Icon(Icons.chevron_right, size: 18, color: AppColors.faint),
