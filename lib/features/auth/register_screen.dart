@@ -33,11 +33,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       _error = null;
     });
     try {
-      await ref.read(sessionProvider.notifier).register(
-        username: _username.text,
-        nickname: _nickname.text,
-        password: _password.text,
-      );
+      await ref
+          .read(sessionProvider.notifier)
+          .register(username: _username.text, nickname: _nickname.text, password: _password.text);
     } catch (error) {
       setState(() => _error = _friendly(error));
     } finally {
@@ -58,10 +56,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [
-          const Text(
-            '계정만 먼저 만듭니다. 키와 체중은 다음 화면에서 입력합니다.',
-            style: TextStyle(color: AppColors.muted),
-          ),
+          const Text('계정만 먼저 만듭니다. 키와 체중은 다음 화면에서 입력합니다.', style: TextStyle(color: AppColors.muted)),
           const SizedBox(height: 20),
           TextField(
             controller: _username,
@@ -84,14 +79,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             Text(_error!, style: const TextStyle(color: AppColors.danger)),
           ],
           const SizedBox(height: 20),
-          FilledButton(
-            onPressed: _loading ? null : _submit,
-            child: Text(_loading ? '가입 처리 중...' : '다음'),
-          ),
-          TextButton(
-            onPressed: () => context.go('/login'),
-            child: const Text('이미 계정이 있으면 로그인'),
-          ),
+          FilledButton(onPressed: _loading ? null : _submit, child: Text(_loading ? '가입 처리 중...' : '다음')),
+          TextButton(onPressed: () => context.go('/login'), child: const Text('이미 계정이 있으면 로그인')),
         ],
       ),
     );

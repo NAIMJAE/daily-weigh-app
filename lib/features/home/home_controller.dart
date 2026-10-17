@@ -35,22 +35,12 @@ final homeSnapshotProvider = FutureProvider<HomeSnapshot>((ref) async {
   final session = await ref.watch(sessionProvider.future);
   final group = session.currentGroup;
   if (group == null) {
-    return const HomeSnapshot(
-      members: [],
-      todayRecords: {},
-      history: [],
-      pokedUserIds: {},
-    );
+    return const HomeSnapshot(members: [], todayRecords: {}, history: [], pokedUserIds: {});
   }
   final members = await ref.read(groupRepositoryProvider).fetchMembers(group.id);
   final userIds = members.map((member) => member.profile.id).toList();
   final records = await ref.read(recordRepositoryProvider).fetchTodayForUsers(userIds);
   final history = await ref.read(recordRepositoryProvider).fetchForUsers(userIds);
   final poked = await ref.read(recordRepositoryProvider).fetchPokedUserIds(groupId: group.id);
-  return HomeSnapshot(
-    members: members,
-    todayRecords: records,
-    history: history,
-    pokedUserIds: poked,
-  );
+  return HomeSnapshot(members: members, todayRecords: records, history: history, pokedUserIds: poked);
 });

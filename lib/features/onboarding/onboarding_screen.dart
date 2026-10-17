@@ -48,11 +48,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       _error = null;
     });
     try {
-      await ref.read(sessionProvider.notifier).completeOnboarding(
-        height: height,
-        startWeight: start,
-        targetWeight: target,
-      );
+      await ref
+          .read(sessionProvider.notifier)
+          .completeOnboarding(height: height, startWeight: start, targetWeight: target);
     } catch (error) {
       setState(() => _error = error.toString());
     } finally {
@@ -91,10 +89,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             Text(_error!, style: const TextStyle(color: AppColors.danger)),
           ],
           const SizedBox(height: 24),
-          FilledButton(
-            onPressed: _saving ? null : _finish,
-            child: Text(_saving ? '저장 중...' : '시작하기'),
-          ),
+          FilledButton(onPressed: _saving ? null : _finish, child: Text(_saving ? '저장 중...' : '시작하기')),
         ],
       ),
     );

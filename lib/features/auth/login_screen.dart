@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/config/app_config.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_constants.dart';
+import '../../shared/widgets/app_card.dart';
 import '../session/session_controller.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -33,10 +34,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _error = null;
     });
     try {
-      await ref.read(sessionProvider.notifier).login(
-        _username.text,
-        _password.text,
-      );
+      await ref.read(sessionProvider.notifier).login(_username.text, _password.text);
     } catch (error) {
       setState(() => _error = _friendly(error));
     } finally {
@@ -82,15 +80,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 Text(_error!, style: const TextStyle(color: AppColors.danger, fontSize: 13)),
               ],
               const SizedBox(height: 20),
-              FilledButton(
-                onPressed: _loading ? null : _submit,
-                child: Text(_loading ? '접속 중...' : '로그인하기'),
-              ),
+              FilledButton(onPressed: _loading ? null : _submit, child: Text(_loading ? '접속 중...' : '로그인하기')),
               const SizedBox(height: 16),
-              TextButton(
-                onPressed: () => context.go('/register'),
-                child: const Text('계정이 없으면 회원가입'),
-              ),
+              TextButton(onPressed: () => context.go('/register'), child: const Text('계정이 없으면 회원가입')),
             ],
           ],
         ),
@@ -111,10 +103,7 @@ class _Brand extends StatelessWidget {
           children: const [
             CircleAvatar(radius: 6, backgroundColor: AppColors.accent),
             SizedBox(width: 8),
-            Text(
-              AppConstants.appName,
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
-            ),
+            Text(AppConstants.appName, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
           ],
         ),
         const SizedBox(height: 8),
@@ -129,14 +118,8 @@ class _SetupBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: AppColors.line),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: const Text(
+    return const AppCard(
+      child: Text(
         '앱 전용 Supabase URL과 anon 키를 assets/env/.env 에 넣으면 로그인이 켜집니다. 웹 프로젝트 키는 쓰지 마세요.',
         style: TextStyle(height: 1.45),
       ),

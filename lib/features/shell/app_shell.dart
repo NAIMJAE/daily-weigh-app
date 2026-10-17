@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_colors.dart';
-import '../record/record_sheet.dart';
 
+/// 하단 탭: 홈, 기록, 통계, 샵, 마이페이지 (얇은 아이콘 + 11 라벨).
 class AppShell extends StatelessWidget {
   const AppShell({super.key, required this.navigationShell});
 
@@ -15,41 +15,27 @@ class AppShell extends StatelessWidget {
       body: navigationShell,
       bottomNavigationBar: DecoratedBox(
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppColors.card,
           border: Border(top: BorderSide(color: AppColors.line)),
         ),
         child: SafeArea(
-          child: SizedBox(
-            height: 64,
-            child: Row(
-              children: [
-                _tab(context, 0, Icons.home_outlined, Icons.home, '홈'),
-                _tab(context, 1, Icons.photo_camera_outlined, Icons.photo_camera, '눈바디'),
-                Expanded(
-                  child: Transform.translate(
-                    offset: const Offset(0, -10),
-                    child: Center(
-                      child: Material(
-                        color: AppColors.accent,
-                        shape: const CircleBorder(
-                          side: BorderSide(color: Colors.white, width: 3),
-                        ),
-                        child: InkWell(
-                          customBorder: const CircleBorder(),
-                          onTap: () => showRecordSheet(context),
-                          child: const SizedBox(
-                            width: 56,
-                            height: 56,
-                            child: Icon(Icons.add, color: Colors.white, size: 28),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+          // 큰 글자에서도 탭 이름이 한 줄에 들어가도록 확대를 1.4배로 묶고, 높이는 내용만큼 늘린다.
+          child: MediaQuery.withClampedTextScaling(
+            maxScaleFactor: 1.4,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 58),
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _tab(0, Icons.grid_view_outlined, Icons.grid_view_rounded, '홈'),
+                    _tab(1, Icons.edit_calendar_outlined, Icons.edit_calendar, '기록'),
+                    _tab(2, Icons.insights_outlined, Icons.insights, '통계'),
+                    _tab(3, Icons.storefront_outlined, Icons.storefront, '샵'),
+                    _tab(4, Icons.person_outline, Icons.person, '마이페이지'),
+                  ],
                 ),
-                _tab(context, 2, Icons.show_chart, Icons.show_chart, '통계'),
-                _tab(context, 3, Icons.person_outline, Icons.person, '마이'),
-              ],
+              ),
             ),
           ),
         ),
@@ -57,31 +43,27 @@ class AppShell extends StatelessWidget {
     );
   }
 
-  Widget _tab(
-    BuildContext context,
-    int index,
-    IconData outlined,
-    IconData filled,
-    String label,
-  ) {
+  Widget _tab(int index, IconData outlined, IconData filled, String label) {
     final selected = navigationShell.currentIndex == index;
+    final color = selected ? AppColors.accent : AppColors.faint;
     return Expanded(
       child: InkWell(
         onTap: () => navigationShell.goBranch(index, initialLocation: index == navigationShell.currentIndex),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(selected ? filled : outlined, color: selected ? AppColors.accent : AppColors.muted),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
-                color: selected ? AppColors.accent : AppColors.muted,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(selected ? filled : outlined, size: 20, color: color),
+              const SizedBox(height: 3),
+              Text(
+                label,
+                maxLines: 1,
+                softWrap: false,
+                style: TextStyle(fontSize: 11, fontWeight: selected ? FontWeight.w700 : FontWeight.w500, color: color),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

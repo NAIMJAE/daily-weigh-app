@@ -1,5 +1,6 @@
 -- 매일재라 앱 v1 스키마. 앱 전용 빈 프로젝트에서 SQL Editor로 실행한다.
 -- Authentication > Sign In / Providers > Email 의 Confirm email 은 OFF.
+-- 이 파일 다음에 patch-permissions.sql 을 반드시 실행한다 (점수 트리거, 그룹 함수, 권한).
 
 create extension if not exists pgcrypto;
 
@@ -271,9 +272,7 @@ alter table public.pokes enable row level security;
 create policy profiles_select on public.profiles
   for select using (id = auth.uid() or public.share_group(auth.uid(), id));
 
-create policy profiles_insert on public.profiles
-  for insert with check (id = auth.uid());
-
+-- 프로필 생성은 가입 트리거, 그룹·멤버십 쓰기와 그룹 이름 정책은 patch-permissions.sql 의 함수가 맡는다.
 create policy profiles_update on public.profiles
   for update using (id = auth.uid());
 
@@ -282,30 +281,8 @@ create policy groups_select on public.groups
     created_by = auth.uid() or public.is_group_member(id, auth.uid())
   );
 
-create policy groups_insert on public.groups
-  for insert with check (auth.uid() is not null and created_by = auth.uid());
-
-create policy groups_update on public.groups
-  for update using (public.is_group_member(id, auth.uid()));
-
-create policy groups_delete on public.groups
-  for delete using (
-    created_by = auth.uid() or public.is_group_member(id, auth.uid())
-  );
-
 create policy members_select on public.group_members
   for select using (public.is_group_member(group_id, auth.uid()));
-
-create policy members_insert on public.group_members
-  for insert with check (user_id = auth.uid());
-
-create policy members_update on public.group_members
-  for update using (public.is_group_member(group_id, auth.uid()));
-
-create policy members_delete on public.group_members
-  for delete using (
-    user_id = auth.uid() or public.is_group_member(group_id, auth.uid())
-  );
 
 create policy records_select on public.daily_records
   for select using (user_id = auth.uid() or public.share_group(auth.uid(), user_id));

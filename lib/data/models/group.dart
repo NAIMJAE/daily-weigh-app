@@ -1,11 +1,5 @@
 class Group {
-  const Group({
-    required this.id,
-    required this.name,
-    required this.isPersonal,
-    this.inviteCode,
-    this.createdBy,
-  });
+  const Group({required this.id, required this.name, required this.isPersonal, this.inviteCode, this.createdBy});
 
   final String id;
   final String name;
