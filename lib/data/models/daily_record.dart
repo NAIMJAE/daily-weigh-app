@@ -49,7 +49,11 @@ class DailyRecord {
   bool get isLogged =>
       weight != null || hasBodyPhoto || hasMealToday || hasWorkout || (memo != null && memo!.trim().isNotEmpty);
 
-  String get workoutSummary => workoutLabel(workoutKinds);
+  /// 운동 한 줄 표시. 루틴 운동을 완료한 날은 예전 '휴식 데이' 표시보다 운동을 앞세운다.
+  String get workoutSummary {
+    if (hasSession && (workoutKinds.isEmpty || isRestOnlyKinds(workoutKinds))) return '운동 완료';
+    return workoutLabel(workoutKinds);
+  }
 
   // 서명 URL은 받을 때마다 바뀌므로 이미지 캐시는 저장 경로와 수정 시각으로 찾는다.
   // 눈바디와 식단은 버킷만 다르고 경로(사용자/날짜.jpg)가 같으므로 버킷 이름을 키에 넣는다.

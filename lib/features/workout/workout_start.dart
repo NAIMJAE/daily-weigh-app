@@ -51,8 +51,125 @@ Future<void> showWorkoutStartSheet(BuildContext context, WidgetRef ref) async {
     final day = choice.day;
     if (day == null) return ActiveWorkout.free(recordDate: recordDate, live: live);
     final history = await ref.read(mySessionsProvider.future);
-    return ActiveWorkout.fromDay(routine: plan!.routine, day: day, recordDate: recordDate, live: live, history: history);
+    final workout = ActiveWorkout.fromDay(
+      routine: plan!.routine,
+      day: day,
+      recordDate: recordDate,
+      live: live,
+      history: history,
+    );
+    // 증량 제안은 헬스장에서 시작할 때만 묻는다. 어제 운동 채우기는 이미 한 값을 적는 것이다.
+    final suggestions = live ? suggestProgressions(day, history) : const <ProgressionSuggestion>[];
+    if (suggestions.isNotEmpty && context.mounted) {
+      final accepted = await _askProgressions(context, suggestions);
+      for (final suggestion in suggestions) {
+        if (accepted.contains(suggestion.exerciseIndex)) suggestion.applyTo(workout);
+      }
+    }
+    return workout;
   });
+}
+
+/// '오늘 올려 볼 종목'. 종목마다 받기/넘기기를 고르고 시작한다. 닫으면 모두 넘긴 것으로 본다.
+Future<Set<int>> _askProgressions(BuildContext context, List<ProgressionSuggestion> suggestions) async {
+  final accepted = await showModalBottomSheet<Set<int>>(
+    context: context,
+    useRootNavigator: true,
+    isScrollControlled: true,
+    backgroundColor: AppColors.card,
+    builder: (context) => _ProgressionSheet(suggestions: suggestions),
+  );
+  return accepted ?? const {};
+}
+
+class _ProgressionSheet extends StatefulWidget {
+  const _ProgressionSheet({required this.suggestions});
+
+  final List<ProgressionSuggestion> suggestions;
+
+  @override
+  State<_ProgressionSheet> createState() => _ProgressionSheetState();
+}
+
+class _ProgressionSheetState extends State<_ProgressionSheet> {
+  late final _accepted = {for (final suggestion in widget.suggestions) suggestion.exerciseIndex};
+
+  @override
+  Widget build(BuildContext context) {
+    final all = _accepted.length == widget.suggestions.length;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(AppSpacing.page, 16, AppSpacing.page, AppSpacing.page),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text('오늘 올려 볼 종목', style: AppText.headline),
+            const SizedBox(height: 4),
+            const Text('지난번에 목표를 모두 채운 종목이에요. 받으면 세트 값이 바뀌어요.', style: AppText.label),
+            const SizedBox(height: AppSpacing.section),
+            for (final suggestion in widget.suggestions)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.gap),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(suggestion.exerciseName, style: AppText.title),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              NumText(
+                                suggestion.from,
+                                style: AppText.number(size: 12, weight: FontWeight.w500, color: AppColors.faint),
+                              ),
+                              const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 4),
+                                child: Icon(Icons.arrow_forward, size: 12, color: AppColors.faint),
+                              ),
+                              NumText(suggestion.to, style: AppText.number(size: 13, color: AppColors.accent)),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    SegmentedButton<bool>(
+                      showSelectedIcon: false,
+                      style: SegmentedButton.styleFrom(visualDensity: VisualDensity.compact),
+                      segments: const [
+                        ButtonSegment(value: true, label: Text('받기')),
+                        ButtonSegment(value: false, label: Text('넘기기')),
+                      ],
+                      selected: {_accepted.contains(suggestion.exerciseIndex)},
+                      onSelectionChanged: (value) => setState(() {
+                        if (value.first) {
+                          _accepted.add(suggestion.exerciseIndex);
+                        } else {
+                          _accepted.remove(suggestion.exerciseIndex);
+                        }
+                      }),
+                    ),
+                  ],
+                ),
+              ),
+            const SizedBox(height: AppSpacing.gap),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, _accepted),
+              child: Text(
+                all
+                    ? '모두 받고 시작'
+                    : _accepted.isEmpty
+                    ? '그대로 시작'
+                    : '${_accepted.length}개 받고 시작',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// 진행 중인 운동이 있으면 버리고 새로 시작할지 묻고, 새 운동을 휴대폰에 저장한 뒤 진행 화면을 연다.

@@ -77,6 +77,18 @@ class RoutineRepository {
     return [for (final row in rows as List) Routine.fromMap(Map<String, dynamic>.from(row as Map))];
   }
 
+  /// 같은 그룹 친구의 루틴. 사용 중인 루틴이 맨 앞이다. 그룹이 다르면 권한에 막혀 빈 목록이다.
+  Future<List<Routine>> fetchRoutinesOf(String userId) async {
+    final client = requireSupabase();
+    final rows = await client
+        .from('routines')
+        .select(_routineTree)
+        .eq('owner_id', userId)
+        .order('is_active', ascending: false)
+        .order('created_at', ascending: true);
+    return [for (final row in rows as List) Routine.fromMap(Map<String, dynamic>.from(row as Map))];
+  }
+
   /// 템플릿이나 친구 루틴을 내 루틴으로 복사하고 새 루틴의 id 를 돌려준다.
   Future<String> copyRoutine(String sourceId, {bool withCardio = false}) async {
     final client = requireSupabase();

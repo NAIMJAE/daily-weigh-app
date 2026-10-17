@@ -377,3 +377,119 @@ String? summarizeSets(List<SessionSet> sets, Measure measure) {
       ].join(' · ');
   }
 }
+
+/// 오늘 올려 볼 종목 하나. 받으면 그 종목의 아직 하지 않은 세트 값이 바뀐다.
+class ProgressionSuggestion {
+  const ProgressionSuggestion({
+    required this.exerciseIndex,
+    required this.exerciseName,
+    required this.from,
+    required this.to,
+    this.weightKg,
+    this.reps,
+    this.seconds,
+  });
+
+  /// 진행 중인 운동의 종목 순서.
+  final int exerciseIndex;
+  final String exerciseName;
+
+  /// '60kg × 8' → '62.5kg × 8' 처럼 보여 줄 두 값.
+  final String from;
+  final String to;
+  final double? weightKg;
+  final int? reps;
+  final int? seconds;
+
+  void applyTo(ActiveWorkout workout) {
+    final exercise = workout.exercises[exerciseIndex];
+    for (final set in exercise.sets) {
+      if (set.done) continue;
+      if (weightKg != null) set.weightKg = weightKg;
+      if (reps != null) set.reps = reps;
+      if (seconds != null) set.seconds = seconds;
+      set.fills++;
+    }
+  }
+}
+
+/// 루틴 종목마다 증량 방식대로, 지난번 그 종목의 모든 세트가 목표를 채웠으면 올려 볼 값을 제안한다.
+/// 지난번 세트를 하나라도 못 채웠거나 처음 하는 종목이면 제안하지 않는다 (docs/workout-routine-plan.md 6장).
+List<ProgressionSuggestion> suggestProgressions(RoutineDay day, List<WorkoutSession> history) {
+  final suggestions = <ProgressionSuggestion>[];
+  for (var i = 0; i < day.items.length; i++) {
+    final suggestion = suggestFor(day.items[i], lastSetsFor(day.items[i].exercise.id, history), i);
+    if (suggestion != null) suggestions.add(suggestion);
+  }
+  return suggestions;
+}
+
+ProgressionSuggestion? suggestFor(RoutineItem item, List<SessionSet> last, int index) {
+  if (last.isEmpty || last.any((set) => !set.done)) return null;
+  final step = item.increment;
+  if (step == null || step <= 0) return null;
+  String kg(double value) => _number(value);
+  final name = item.exercise.name;
+
+  switch (item.progression) {
+    case Progression.weight:
+      final target = item.repsMin ?? item.repsMax;
+      final weight = _maxWeight(last);
+      if (target == null || weight == null || last.any((set) => (set.reps ?? 0) < target)) return null;
+      final next = weight + step;
+      return ProgressionSuggestion(
+        exerciseIndex: index,
+        exerciseName: name,
+        from: '${kg(weight)}kg × $target',
+        to: '${kg(next)}kg × $target',
+        weightKg: next,
+        reps: target,
+      );
+    case Progression.doubleProgression:
+      final low = item.repsMin;
+      final high = item.repsMax;
+      final weight = _maxWeight(last);
+      if (low == null || high == null || weight == null || last.any((set) => (set.reps ?? 0) < high)) return null;
+      final next = weight + step;
+      return ProgressionSuggestion(
+        exerciseIndex: index,
+        exerciseName: name,
+        from: '${kg(weight)}kg × $high',
+        to: '${kg(next)}kg × $low',
+        weightKg: next,
+        reps: low,
+      );
+    case Progression.reps:
+      final reps = [for (final set in last) set.reps ?? 0];
+      final lowest = reps.reduce((a, b) => a < b ? a : b);
+      final target = item.repsMin ?? item.repsMax;
+      // 지난번 가장 적게 한 세트가 목표 이상이면, 그 횟수에서 올린다. 목표가 '최대'면 비교 없이 올린다.
+      if (lowest <= 0 || (target != null && lowest < target)) return null;
+      final next = lowest + step.round();
+      return ProgressionSuggestion(exerciseIndex: index, exerciseName: name, from: '$lowest회', to: '$next회', reps: next);
+    case Progression.time:
+      final target = item.targetSeconds;
+      final times = [for (final set in last) set.seconds ?? 0];
+      final shortest = times.reduce((a, b) => a < b ? a : b);
+      if (target == null || shortest < target) return null;
+      final next = shortest + step.round();
+      return ProgressionSuggestion(
+        exerciseIndex: index,
+        exerciseName: name,
+        from: '$shortest초',
+        to: '$next초',
+        seconds: next,
+      );
+    case Progression.none:
+      return null;
+  }
+}
+
+double? _maxWeight(List<SessionSet> sets) {
+  double? top;
+  for (final set in sets) {
+    final weight = set.weightKg;
+    if (weight != null && (top == null || weight > top)) top = weight;
+  }
+  return top;
+}

@@ -18,6 +18,7 @@ import '../../shared/widgets/ui_parts.dart';
 import '../home/home_controller.dart';
 import '../record/record_sheet.dart';
 import '../session/session_controller.dart';
+import '../workout/member_workout_card.dart';
 import 'comment_sheet.dart';
 
 class MemberRoomScreen extends ConsumerStatefulWidget {
@@ -167,6 +168,11 @@ class _MemberRoomScreenState extends ConsumerState<MemberRoomScreen> {
                     ],
                   ),
                 ),
+                // 친구 방에서는 루틴(가져가기)과 최근 운동을 본다. 같은 그룹 멤버일 때만 보인다.
+                if (!mine && _profile != null) ...[
+                  const SizedBox(height: AppSpacing.section),
+                  MemberWorkoutCard(userId: widget.userId, nickname: _profile!.nickname),
+                ],
                 if (mine && _pokes.isNotEmpty) ...[
                   const SizedBox(height: AppSpacing.section),
                   AppCard(

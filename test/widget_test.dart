@@ -394,4 +394,71 @@ void main() {
       expect(groups.last.$2.single.label, '1분');
     });
   });
+
+  group('증량 제안', () {
+    RoutineItem item(Measure measure, Progression progression, double increment, {int? low, int? high, int? seconds}) =>
+        RoutineItem(
+          id: 'i',
+          position: 1,
+          exercise: Exercise(
+            id: 'e',
+            name: '종목',
+            bodyPart: BodyPart.chest,
+            measure: measure,
+            progression: progression,
+            increment: increment,
+          ),
+          targetSets: 3,
+          repsMin: low,
+          repsMax: high,
+          targetSeconds: seconds,
+        );
+    SessionSet set({double? kg, int? reps, int? seconds, bool done = true}) => SessionSet(
+      exerciseId: 'e',
+      exerciseName: '종목',
+      itemPosition: 1,
+      setNumber: 1,
+      weightKg: kg,
+      reps: reps,
+      seconds: seconds,
+      done: done,
+    );
+
+    test('무게 올리기: 모든 세트가 목표 횟수를 채우면 무게를 올린다', () {
+      final bench = item(Measure.weightReps, Progression.weight, 2.5, low: 8, high: 8);
+      final suggestion = suggestFor(bench, [set(kg: 60, reps: 8), set(kg: 60, reps: 8)], 0)!;
+      expect((suggestion.from, suggestion.to, suggestion.weightKg), ('60kg × 8', '62.5kg × 8', 62.5));
+      expect(suggestFor(bench, [set(kg: 60, reps: 8), set(kg: 60, reps: 7)], 0), isNull);
+      expect(suggestFor(bench, [set(kg: 60, reps: 8), set(kg: 60, reps: 8, done: false)], 0), isNull);
+      expect(suggestFor(bench, const [], 0), isNull);
+    });
+
+    test('더블 프로그레션: 위끝 횟수를 모두 채우면 무게를 올리고 횟수는 아래끝으로', () {
+      final pulldown = item(Measure.weightReps, Progression.doubleProgression, 2.5, low: 10, high: 12);
+      expect(suggestFor(pulldown, [set(kg: 45, reps: 11), set(kg: 45, reps: 12)], 0), isNull);
+      final suggestion = suggestFor(pulldown, [set(kg: 45, reps: 12), set(kg: 45, reps: 12)], 0)!;
+      expect((suggestion.to, suggestion.weightKg, suggestion.reps), ('47.5kg × 10', 47.5, 10));
+    });
+
+    test('횟수와 시간 올리기는 지난번에 한 값에서 올린다', () {
+      final pullUp = item(Measure.reps, Progression.reps, 1);
+      expect(suggestFor(pullUp, [set(reps: 9), set(reps: 8)], 0)!.reps, 9);
+      final plank = item(Measure.time, Progression.time, 10, seconds: 60);
+      expect(suggestFor(plank, [set(seconds: 70), set(seconds: 80)], 0)!.seconds, 80);
+      expect(suggestFor(plank, [set(seconds: 50)], 0), isNull);
+    });
+
+    test('받은 제안은 아직 하지 않은 세트에만 들어간다', () {
+      final workout = ActiveWorkout.free(recordDate: '2026-10-18', live: true);
+      workout.exercises.add(
+        ActiveExercise(
+          name: '벤치프레스',
+          measure: Measure.weightReps,
+          sets: [ActiveSet(weightKg: 60, reps: 8, done: true), ActiveSet(weightKg: 60, reps: 8)],
+        ),
+      );
+      const ProgressionSuggestion(exerciseIndex: 0, exerciseName: '벤치프레스', from: '', to: '', weightKg: 62.5).applyTo(workout);
+      expect([for (final set in workout.exercises.single.sets) set.weightKg], [60, 62.5]);
+    });
+  });
 }
