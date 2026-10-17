@@ -40,6 +40,11 @@ class _WorkoutSessionScreenState extends ConsumerState<WorkoutSessionScreen> {
     super.initState();
     // 경과 시간과 쉬는 시간을 1초마다 다시 그린다.
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
+    // 일회성 운동은 종목이 없이 시작하므로 바로 종목 고르기를 연다.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final workout = ref.read(activeWorkoutProvider).value;
+      if (mounted && workout != null && workout.exercises.isEmpty) _addExercise(workout);
+    });
   }
 
   @override
@@ -228,11 +233,29 @@ class _WorkoutSessionScreenState extends ConsumerState<WorkoutSessionScreen> {
             ),
             const SizedBox(height: AppSpacing.section),
           ],
-          OutlinedButton.icon(
-            onPressed: () => _addExercise(workout),
-            icon: const Icon(Icons.add, size: 18),
-            label: const Text('종목 추가'),
-          ),
+          if (workout.exercises.isEmpty)
+            AppCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text('어떤 운동을 했나요?', style: AppText.title),
+                  const SizedBox(height: 4),
+                  const Text('종목을 골라 추가해 주세요. 목록에 없으면 이름을 적어 추가할 수 있어요.', style: AppText.label),
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    onPressed: () => _addExercise(workout),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('종목 추가'),
+                  ),
+                ],
+              ),
+            )
+          else
+            OutlinedButton.icon(
+              onPressed: () => _addExercise(workout),
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('종목 추가'),
+            ),
         ],
       ),
       bottomNavigationBar: Column(

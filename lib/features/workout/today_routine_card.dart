@@ -11,16 +11,14 @@ import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/section_title.dart';
 import 'active_workout_controller.dart';
 import 'workout_controller.dart';
-import 'workout_start.dart';
 
-/// 운동 기록 화면 위의 루틴 카드. 루틴이 없으면 만들기로, 있으면 오늘 할 날을 보여 준다.
+/// 루틴 탭 맨 위의 카드. 루틴이 없으면 만들기로, 있으면 사용 중인 루틴과 오늘 할 날을 보여 준다.
 class TodayRoutineCard extends ConsumerWidget {
   const TodayRoutineCard({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final plan = ref.watch(todayPlanProvider);
-    final active = ref.watch(activeWorkoutProvider).value;
     return plan.when(
       loading: () => const AppCard(child: SizedBox(height: 80, child: Center(child: CircularProgressIndicator()))),
       error: (error, _) => const SizedBox.shrink(),
@@ -56,13 +54,13 @@ class TodayRoutineCard extends ConsumerWidget {
                 icon: Icons.event_repeat,
                 trailing: TextButton(
                   style: TextButton.styleFrom(minimumSize: const Size(0, 30), padding: const EdgeInsets.symmetric(horizontal: 8)),
-                  onPressed: () => context.push('/workout/routines'),
-                  child: const Text('루틴 관리'),
+                  onPressed: () => context.push('/workout/routines/${plan.routine.id}'),
+                  child: const Text('편집'),
                 ),
               ),
               const SizedBox(height: 10),
               if (next == null)
-                const Text('이 루틴에 날이 없어요. 루틴 관리에서 날을 추가해 주세요.', style: AppText.label)
+                const Text('이 루틴에 날이 없어요. 편집에서 날을 추가해 주세요.', style: AppText.label)
               else ...[
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
@@ -104,45 +102,31 @@ class TodayRoutineCard extends ConsumerWidget {
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
-                if (active != null)
-                  ResumeWorkoutBox(workout: active)
-                else ...[
-                  FilledButton.icon(
-                    onPressed: () => startWorkout(context, ref, routine: plan.routine, day: next),
-                    icon: const Icon(Icons.play_arrow, size: 18),
-                    label: Text('${next.name} 시작'),
-                  ),
-                  const SizedBox(height: AppSpacing.gap),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () async {
-                            final day = await pickRoutineDay(context, plan.routine, title: '어떤 날을 할까요?', highlight: next);
-                            if (day != null && context.mounted) {
-                              await startWorkout(context, ref, routine: plan.routine, day: day);
-                            }
-                          },
-                          child: const Text('다른 날 하기'),
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.gap),
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () async {
-                            final day = await pickRoutineDay(context, plan.routine, title: '어제 한 날을 골라 주세요', highlight: next);
-                            if (day != null && context.mounted) {
-                              await startWorkout(context, ref, routine: plan.routine, day: day, yesterday: true);
-                            }
-                          },
-                          child: const Text('어제 운동 채우기'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
               ],
+              const SizedBox(height: 10),
+              // 순서대로 도는 날을 한눈에 보여 준다. 오늘 할 날이 강조된다.
+              Wrap(
+                spacing: AppSpacing.chip,
+                runSpacing: AppSpacing.chip,
+                children: [
+                  for (final day in plan.routine.days)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: day.id == next?.id ? AppColors.chipFill : AppColors.mutedBg,
+                        borderRadius: BorderRadius.circular(AppRadius.chip),
+                      ),
+                      child: Text(
+                        day.name,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: day.id == next?.id ? AppColors.accent : AppColors.muted,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ],
           ),
         );

@@ -334,5 +334,19 @@ void main() {
       expect(exercise.sets[1].fills, 1);
       expect(exercise.sets[2].fills, 0);
     });
+
+    test('일회성 운동은 종목 없이 시작하고 루틴에 묶이지 않는다', () {
+      final workout = ActiveWorkout.free(recordDate: '2026-10-18', live: true, now: DateTime(2026, 10, 18, 7));
+      expect(workout.exercises, isEmpty);
+      expect((workout.routineId, workout.routineDayId), (null, null));
+      expect(workout.dayName, '일회성 운동');
+      workout.exercises.add(
+        ActiveExercise.added(
+          const Exercise(id: 'run', name: '러닝머신', bodyPart: BodyPart.cardio, measure: Measure.timeDistance),
+          const [],
+        ),
+      );
+      expect(workout.exercises.single.sets.single.seconds, 1200);
+    });
   });
 }

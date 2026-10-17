@@ -8,12 +8,12 @@ import '../../core/theme/app_text.dart';
 import '../../core/utils/error_message.dart';
 import '../../data/models/workout_routine.dart';
 import '../records/records_controller.dart';
-import '../records/write/write_parts.dart';
+import 'today_routine_card.dart';
 import 'workout_controller.dart';
 
-/// 내 루틴 목록. 사용 중인 루틴을 바꾸고, 새 루틴을 만들고, 루틴을 열어 고친다.
-class RoutineListScreen extends ConsumerWidget {
-  const RoutineListScreen({super.key});
+/// 운동 기록 화면의 루틴 탭: 사용 중인 루틴과 오늘 할 날, 다른 루틴, 새 루틴 만들기.
+class RoutineTab extends ConsumerWidget {
+  const RoutineTab({super.key});
 
   Future<void> _activate(BuildContext context, WidgetRef ref, Routine routine) async {
     try {
@@ -29,35 +29,44 @@ class RoutineListScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final routines = ref.watch(myRoutinesProvider);
-    return Scaffold(
-      appBar: AppBar(title: const Text('내 루틴')),
-      body: routines.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(child: Text(friendlyError(error))),
-        data: (list) => list.isEmpty
-            ? const Center(child: Text('아직 만든 루틴이 없어요.', style: AppText.label))
-            : ListView(
-                padding: const EdgeInsets.all(AppSpacing.page),
-                children: [
-                  for (final routine in list) ...[
-                    _RoutineCard(
-                      routine: routine,
-                      onOpen: () => context.push('/workout/routines/${routine.id}'),
-                      onActivate: routine.isActive ? null : () => _activate(context, ref, routine),
-                    ),
-                    const SizedBox(height: AppSpacing.section),
-                  ],
-                ],
-              ),
-      ),
-      bottomNavigationBar: SaveBar(label: '새 루틴 만들기', onPressed: () => context.push('/workout/routines/new')),
+    final routines = ref.watch(myRoutinesProvider).value ?? const <Routine>[];
+    final others = routines.where((routine) => !routine.isActive).toList();
+    return ListView(
+      padding: const EdgeInsets.all(AppSpacing.page),
+      children: [
+        const TodayRoutineCard(),
+        if (others.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.section),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 4),
+            child: Text('다른 루틴', style: AppText.label),
+          ),
+          const SizedBox(height: AppSpacing.gap),
+          for (final routine in others) ...[
+            RoutineSummaryCard(
+              routine: routine,
+              onOpen: () => context.push('/workout/routines/${routine.id}'),
+              onActivate: () => _activate(context, ref, routine),
+            ),
+            const SizedBox(height: AppSpacing.section),
+          ],
+        ],
+        if (routines.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.section),
+          OutlinedButton.icon(
+            onPressed: () => context.push('/workout/routines/new'),
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('새 루틴 만들기'),
+          ),
+        ],
+      ],
     );
   }
 }
 
-class _RoutineCard extends StatelessWidget {
-  const _RoutineCard({required this.routine, required this.onOpen, this.onActivate});
+/// 루틴 한 줄 요약 카드: 이름, 날마다 종목. 사용 중이 아니면 사용하기 버튼이 있다.
+class RoutineSummaryCard extends StatelessWidget {
+  const RoutineSummaryCard({super.key, required this.routine, required this.onOpen, this.onActivate});
 
   final Routine routine;
   final VoidCallback onOpen;
@@ -67,10 +76,6 @@ class _RoutineCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppRadius.card),
-        side: BorderSide(color: routine.isActive ? AppColors.accent : AppColors.line, width: routine.isActive ? 1.5 : 1),
-      ),
       child: InkWell(
         onTap: onOpen,
         child: Padding(

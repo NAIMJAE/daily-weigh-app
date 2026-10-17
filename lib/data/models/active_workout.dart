@@ -34,6 +34,19 @@ class ActiveWorkout {
     );
   }
 
+  /// 루틴 없이 종목을 골라 하는 운동. 루틴 순서에는 들어가지 않는다.
+  factory ActiveWorkout.free({required String recordDate, required bool live, DateTime? now}) {
+    return ActiveWorkout(
+      recordDate: recordDate,
+      live: live,
+      dayName: freeWorkoutName,
+      startedAt: live ? (now ?? DateTime.now()) : null,
+      exercises: [],
+    );
+  }
+
+  static const freeWorkoutName = '일회성 운동';
+
   final String recordDate;
   final bool live;
   final String? routineId;

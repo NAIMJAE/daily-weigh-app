@@ -325,6 +325,20 @@ class RecordRepository {
     }, onConflict: 'user_id,record_date');
   }
 
+  /// 그 날을 휴식 데이로 남긴다. 루틴 순서는 그대로고, 달력에는 '휴'로 보인다.
+  Future<void> saveRestDay(String date) async {
+    final client = requireSupabase();
+    final user = client.auth.currentUser;
+    if (user == null) throw StateError('로그인이 필요합니다.');
+    await client.from('daily_records').upsert({
+      'user_id': user.id,
+      'record_date': date,
+      'workout_kinds': [WorkoutKind.rest.dbValue],
+      'workout_minutes': null,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    }, onConflict: 'user_id,record_date');
+  }
+
   /// 한 끼 저장. 하루 기록의 식단 표시와 점수는 서버 트리거(meal_entries_sync_day)가 맞춘다.
   Future<void> saveMeal({
     required String date,

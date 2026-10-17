@@ -856,10 +856,11 @@ class _TodayBadge extends StatelessWidget {
 
 /// 기록 화면 아래의 추가 버튼. [onPressed]가 없으면 누를 수 없는 자리로 둔다.
 class AddRecordBar extends StatelessWidget {
-  const AddRecordBar({super.key, this.onPressed, this.label = '기록 추가 (준비 중)'});
+  const AddRecordBar({super.key, this.onPressed, this.label = '기록 추가 (준비 중)', this.icon = Icons.add});
 
   final VoidCallback? onPressed;
   final String label;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
@@ -874,7 +875,7 @@ class AddRecordBar extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(AppSpacing.page, 10, AppSpacing.page, 10),
           child: FilledButton.icon(
             onPressed: onPressed,
-            icon: const Icon(Icons.add, size: 18),
+            icon: Icon(icon, size: 18),
             label: Text(label),
           ),
         ),
