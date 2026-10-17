@@ -3,6 +3,7 @@ import 'package:daily_weigh/core/utils/points.dart';
 import 'package:daily_weigh/core/utils/storage_path.dart';
 import 'package:daily_weigh/core/utils/streak.dart';
 import 'package:daily_weigh/core/utils/weight.dart';
+import 'package:daily_weigh/data/models/active_workout.dart';
 import 'package:daily_weigh/data/models/daily_record.dart';
 import 'package:daily_weigh/data/models/meal_entry.dart';
 import 'package:daily_weigh/data/models/profile.dart';
@@ -240,5 +241,98 @@ void main() {
     expect(restLabel(45), '45초');
     expect(restLabel(90), '1분 30초');
     expect(restLabel(180), '3분');
+  });
+
+  group('진행 중인 운동', () {
+    const bench = Exercise(
+      id: 'bench',
+      name: '벤치프레스',
+      bodyPart: BodyPart.chest,
+      measure: Measure.weightReps,
+      progression: Progression.weight,
+      restSeconds: 150,
+    );
+    final day = RoutineDay(
+      id: 'a',
+      position: 1,
+      name: 'A 밀기',
+      items: [RoutineItem(id: 'i', position: 1, exercise: bench, targetSets: 3, repsMin: 8, repsMax: 8)],
+    );
+    final routine = Routine(id: 'r', name: '3분할', days: [day]);
+
+    test('지난번 같은 번호 세트 값으로 채우고, 모자라면 마지막 세트 값을 쓴다', () {
+      final history = [
+        WorkoutSession.fromMap({
+          'id': 's',
+          'user_id': 'u',
+          'record_date': '2026-10-16',
+          'duration_minutes': 50,
+          'session_sets': [
+            {'exercise_id': 'bench', 'exercise_name': '벤치프레스', 'item_position': 1, 'set_number': 1, 'weight_kg': 60, 'reps': 8},
+            {'exercise_id': 'bench', 'exercise_name': '벤치프레스', 'item_position': 1, 'set_number': 2, 'weight_kg': 62.5, 'reps': 6},
+          ],
+        }),
+      ];
+      final workout = ActiveWorkout.fromDay(
+        routine: routine,
+        day: day,
+        recordDate: '2026-10-18',
+        live: true,
+        history: history,
+      );
+      final sets = workout.exercises.single.sets;
+      expect([for (final set in sets) (set.weightKg, set.reps)], [(60.0, 8), (62.5, 6), (62.5, 6)]);
+      expect(workout.exercises.single.lastSummary, '62.5kg × 6');
+      expect(workout.exercises.single.restSeconds, 150);
+    });
+
+    test('처음 하는 종목은 루틴 목표로 채우고 무게는 비워 둔다', () {
+      final workout = ActiveWorkout.fromDay(routine: routine, day: day, recordDate: '2026-10-18', live: true, history: const []);
+      final set = workout.exercises.single.sets.first;
+      expect((set.weightKg, set.reps, set.done), (null, 8, false));
+      expect(workout.exercises.single.lastSummary, isNull);
+    });
+
+    test('휴대폰에 저장했다 다시 읽어도 같은 운동이다', () {
+      final workout = ActiveWorkout.fromDay(
+        routine: routine,
+        day: day,
+        recordDate: '2026-10-18',
+        live: true,
+        history: const [],
+        now: DateTime(2026, 10, 18, 19),
+      );
+      workout.exercises.single.sets.first
+        ..weightKg = 60
+        ..done = true;
+      final restored = ActiveWorkout.fromJson(workout.toJson());
+      expect(restored.dayName, 'A 밀기');
+      expect(restored.startedAt, DateTime(2026, 10, 18, 19));
+      expect(restored.doneSets, 1);
+      expect(restored.exercises.single.sets.first.weightKg, 60);
+      expect(restored.minutesAt(DateTime(2026, 10, 18, 19, 52)), 52);
+    });
+
+    test('저장할 세트는 순서를 매기고 체크하지 않은 세트도 남긴다', () {
+      final workout = ActiveWorkout.fromDay(routine: routine, day: day, recordDate: '2026-10-18', live: false, history: const []);
+      workout.exercises.single.sets.first.done = true;
+      final sets = workout.toSessionSets();
+      expect([for (final set in sets) (set.setNumber, set.done)], [(1, true), (2, false), (3, false)]);
+      expect(sets.first.targetReps, 8);
+      expect(workout.minutesAt(DateTime(2026, 10, 18)), 60);
+    });
+
+    test('세트를 체크하면 뒤쪽 빈 세트에 무게를 채우고, 적어 둔 값은 그대로 둔다', () {
+      final workout = ActiveWorkout.fromDay(routine: routine, day: day, recordDate: '2026-10-18', live: true, history: const []);
+      final exercise = workout.exercises.single;
+      exercise.sets[2].weightKg = 55;
+      exercise.sets[0]
+        ..weightKg = 60
+        ..done = true;
+      exercise.fillAfter(exercise.sets[0]);
+      expect([for (final set in exercise.sets) set.weightKg], [60, 60, 55]);
+      expect(exercise.sets[1].fills, 1);
+      expect(exercise.sets[2].fills, 0);
+    });
   });
 }

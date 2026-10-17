@@ -50,7 +50,6 @@ class WorkoutRecordScreen extends ConsumerWidget {
           ],
         ),
       ),
-      bottomNavigationBar: const AddRecordBar(),
     );
   }
 }

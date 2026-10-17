@@ -19,6 +19,8 @@ import '../../shared/widgets/ui_parts.dart';
 import '../../shared/widgets/weight_chart.dart';
 import '../records/record_type.dart';
 import '../session/session_controller.dart';
+import '../workout/active_workout_controller.dart';
+import '../workout/today_routine_card.dart';
 import 'home_controller.dart';
 
 /// 순서: 기록 바로가기, BMI 스펙트럼, 체중 변화 그래프, 멤버.
@@ -37,6 +39,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final session = ref.watch(sessionProvider).value;
     final snapshot = ref.watch(homeSnapshotProvider);
     final group = session?.currentGroup;
+    final activeWorkout = ref.watch(activeWorkoutProvider).value;
 
     return Scaffold(
       appBar: const AppTopBar(),
@@ -54,6 +57,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: ListView(
               padding: const EdgeInsets.all(AppSpacing.page),
               children: [
+                // 앱이 꺼졌다 켜져도 끝내지 않은 운동을 바로 이어 할 수 있게 맨 위에 둔다.
+                if (activeWorkout != null) ...[
+                  ResumeWorkoutBox(workout: activeWorkout),
+                  const SizedBox(height: AppSpacing.section),
+                ],
                 const _RecordShortcuts(),
                 const SizedBox(height: AppSpacing.section),
                 AppCard(

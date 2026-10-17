@@ -186,14 +186,17 @@ class RoutineRepository {
     return id as String;
   }
 
-  Future<List<WorkoutSession>> fetchSessions(String userId) async {
+  /// 최근 운동부터. [limit]가 있으면 그만큼만 읽는다 (지난번 값 채우기에는 최근 기록이면 된다).
+  Future<List<WorkoutSession>> fetchSessions(String userId, {int? limit}) async {
     final client = requireSupabase();
-    final rows = await client
+    var query = client
         .from('workout_sessions')
         .select('*, session_sets(*)')
         .eq('user_id', userId)
         .order('record_date', ascending: false)
         .order('created_at', ascending: false);
+    if (limit != null) query = query.limit(limit);
+    final rows = await query;
     return [for (final row in rows as List) WorkoutSession.fromMap(Map<String, dynamic>.from(row as Map))];
   }
 

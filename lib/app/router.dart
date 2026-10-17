@@ -24,6 +24,7 @@ import '../features/stats/stats_screen.dart';
 import '../features/workout/routine_editor_screen.dart';
 import '../features/workout/routine_list_screen.dart';
 import '../features/workout/template_picker_screen.dart';
+import '../features/workout/workout_session_screen.dart';
 
 class _RouterRefresh extends ChangeNotifier {
   void ping() => notifyListeners();
@@ -75,6 +76,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/write/body',
         builder: (context, state) => BodyWriteScreen(date: state.uri.queryParameters['date']),
       ),
+      GoRoute(path: '/workout/session', builder: (context, state) => const WorkoutSessionScreen()),
       GoRoute(path: '/workout/routines', builder: (context, state) => const RoutineListScreen()),
       // 'new' 가 ':id' 보다 먼저 와야 새 루틴 만들기가 편집 화면으로 잡히지 않는다.
       GoRoute(path: '/workout/routines/new', builder: (context, state) => const TemplatePickerScreen()),
