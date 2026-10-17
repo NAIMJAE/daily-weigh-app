@@ -439,10 +439,8 @@ class _ItemRow extends StatelessWidget {
     final shown = item.toItem(index + 1);
     final rest = shown.restSeconds;
     final empty = item.weight == null;
-    final detail = [
-      if (rest != null && rest > 0) '쉬기 ${restLabel(rest)}',
-      if (shown.progression != Progression.none) shown.progression.label,
-    ].join(' · ');
+    // 줄이 좁아 증량 방식은 편집 시트에서만 보여 준다.
+    final detail = rest != null && rest > 0 ? '쉬기 ${restLabel(rest)}' : '';
     return InkWell(
       borderRadius: BorderRadius.circular(AppRadius.tile),
       onTap: onTap,
@@ -476,9 +474,13 @@ class _ItemRow extends StatelessWidget {
                     isDense: true,
                     hintText: '0',
                     hintStyle: AppText.number(size: 14, weight: FontWeight.w500, color: AppColors.line),
-                    suffixText: 'kg',
-                    suffixStyle: AppText.caption,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
+                    // suffixText 는 빈 칸에서 숨겨지므로, 'kg' 를 늘 보이도록 아이콘 자리에 둔다.
+                    suffixIcon: const Padding(
+                      padding: EdgeInsets.only(right: 8),
+                      child: Text('kg', style: AppText.caption),
+                    ),
+                    suffixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
+                    contentPadding: const EdgeInsets.fromLTRB(8, 9, 4, 9),
                     fillColor: highlightEmpty && empty ? AppColors.accentSoft : AppColors.canvas,
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(AppRadius.chip),
@@ -488,9 +490,13 @@ class _ItemRow extends StatelessWidget {
                   onChanged: onWeightChanged,
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 6),
             ],
-            NumText(shown.targetLabel, style: AppText.number(size: 13)),
+            // 목표 폭을 고정해 줄마다 kg 칸이 같은 자리에 오게 한다.
+            SizedBox(
+              width: 78,
+              child: NumText(shown.targetLabel, textAlign: TextAlign.right, style: AppText.number(size: 13)),
+            ),
             const SizedBox(width: 4),
             const Icon(Icons.chevron_right, size: 18, color: AppColors.faint),
           ],
