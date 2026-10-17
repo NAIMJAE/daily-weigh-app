@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../features/auth/login_screen.dart';
 import '../features/auth/register_screen.dart';
-import '../features/body/body_screen.dart';
 import '../features/calendar/photo_calendar_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/member_room/member_room_screen.dart';
@@ -12,8 +11,15 @@ import '../features/mypage/body_edit_screen.dart';
 import '../features/mypage/mypage_screen.dart';
 import '../features/onboarding/onboarding_screen.dart';
 import '../features/overlay/overlay_screen.dart';
+import '../features/records/body_record_screen.dart';
+import '../features/records/meal_record_screen.dart';
+import '../features/records/records_screen.dart';
+import '../features/records/workout_record_screen.dart';
+import '../features/records/write/body_write_screen.dart';
+import '../features/records/write/meal_write_screen.dart';
 import '../features/session/session_controller.dart';
 import '../features/shell/app_shell.dart';
+import '../features/shop/shop_screen.dart';
 import '../features/stats/stats_screen.dart';
 
 class _RouterRefresh extends ChangeNotifier {
@@ -62,6 +68,17 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => PhotoCalendarScreen(userId: state.pathParameters['userId']!),
       ),
       GoRoute(path: '/edit-body', builder: (context, state) => const BodyEditScreen()),
+      GoRoute(
+        path: '/write/body',
+        builder: (context, state) => BodyWriteScreen(date: state.uri.queryParameters['date']),
+      ),
+      GoRoute(
+        path: '/write/meal',
+        builder: (context, state) => MealWriteScreen(
+          date: state.uri.queryParameters['date'],
+          slot: state.uri.queryParameters['slot'],
+        ),
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
           return AppShell(navigationShell: navigationShell);
@@ -71,10 +88,23 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [GoRoute(path: '/home', builder: (context, state) => const HomeScreen())],
           ),
           StatefulShellBranch(
-            routes: [GoRoute(path: '/body', builder: (context, state) => const BodyScreen())],
+            routes: [
+              GoRoute(
+                path: '/records',
+                builder: (context, state) => const RecordsScreen(),
+                routes: [
+                  GoRoute(path: 'body', builder: (context, state) => const BodyRecordScreen()),
+                  GoRoute(path: 'meal', builder: (context, state) => const MealRecordScreen()),
+                  GoRoute(path: 'workout', builder: (context, state) => const WorkoutRecordScreen()),
+                ],
+              ),
+            ],
           ),
           StatefulShellBranch(
             routes: [GoRoute(path: '/stats', builder: (context, state) => const StatsScreen())],
+          ),
+          StatefulShellBranch(
+            routes: [GoRoute(path: '/shop', builder: (context, state) => const ShopScreen())],
           ),
           StatefulShellBranch(
             routes: [GoRoute(path: '/mypage', builder: (context, state) => const MyPageScreen())],

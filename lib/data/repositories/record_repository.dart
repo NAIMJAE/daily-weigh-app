@@ -7,6 +7,7 @@ import '../../core/utils/local_date.dart';
 import '../../core/utils/points.dart';
 import '../../core/utils/weight.dart';
 import '../models/daily_record.dart';
+import '../models/meal_entry.dart';
 import '../models/workout.dart';
 import '../supabase/app_supabase.dart';
 
@@ -149,6 +150,20 @@ class RecordRepository {
     return _hydrateAll([for (final row in rows as List) DailyRecord.fromMap(Map<String, dynamic>.from(row as Map))]);
   }
 
+  Future<List<MealEntry>> fetchMealEntries(String userId) async {
+    final client = requireSupabase();
+    final rows = await client
+        .from('meal_entries')
+        .select()
+        .eq('user_id', userId)
+        .order('record_date', ascending: false);
+    final entries = [
+      for (final row in rows as List) ?MealEntry.fromMap(Map<String, dynamic>.from(row as Map)),
+    ];
+    final signed = await _signAll('meal-photos', [for (final entry in entries) entry.photoPath]);
+    return [for (final entry in entries) entry.copyWith(photoUrl: signed[entry.photoPath])];
+  }
+
   /// 차트·통계용. 사진 URL은 만들지 않는다.
   Future<List<DailyRecord>> fetchForUsers(List<String> userIds) async {
     if (userIds.isEmpty) return [];
@@ -235,10 +250,10 @@ class RecordRepository {
     var mealPath = draft.removeMeal ? null : existing?.mealPhotoPath;
 
     if (draft.bodyPhotoPath != null) {
-      bodyPath = await _uploadPhoto(userId: user.id, date: today, path: draft.bodyPhotoPath!, bucket: 'body-photos');
+      bodyPath = await _uploadPhoto(userId: user.id, name: today, path: draft.bodyPhotoPath!, bucket: 'body-photos');
     }
     if (draft.mealPhotoPath != null) {
-      mealPath = await _uploadPhoto(userId: user.id, date: today, path: draft.mealPhotoPath!, bucket: 'meal-photos');
+      mealPath = await _uploadPhoto(userId: user.id, name: today, path: draft.mealPhotoPath!, bucket: 'meal-photos');
     }
 
     final restOnly = isRestOnly(draft.kinds);
@@ -274,6 +289,104 @@ class RecordRepository {
     };
 
     await client.from('daily_records').upsert(payload, onConflict: 'user_id,record_date');
+  }
+
+  /// 눈바디 기록 저장. 체중, 눈바디 사진, 메모만 바꾸고 식단·운동 칸은 그대로 둔다.
+  Future<void> saveBody({
+    required String date,
+    required String weight,
+    required String memo,
+    String? newPhotoPath,
+    bool removePhoto = false,
+  }) async {
+    final client = requireSupabase();
+    final user = client.auth.currentUser;
+    if (user == null) throw StateError('로그인이 필요합니다.');
+    final existing = await fetchForUserOn(user.id, date);
+
+    var bodyPath = removePhoto ? null : existing?.bodyPhotoPath;
+    if (newPhotoPath != null) {
+      bodyPath = await _uploadPhoto(userId: user.id, name: date, path: newPhotoPath, bucket: 'body-photos');
+    }
+    final value = roundWeight(weight);
+    if (value == null && bodyPath == null) {
+      throw StateError('체중이나 눈바디 사진 중 하나는 필요합니다.');
+    }
+    final note = memo.trim();
+
+    // 보낸 칸만 바뀐다. points_earned, 지갑, 스트릭은 서버 트리거가 계산한다.
+    await client.from('daily_records').upsert({
+      'user_id': user.id,
+      'record_date': date,
+      'weight': value,
+      'body_photo_url': bodyPath,
+      'memo': note.isEmpty ? null : note,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    }, onConflict: 'user_id,record_date');
+  }
+
+  /// 한 끼 저장. 하루 기록의 식단 표시와 점수는 서버 트리거(meal_entries_sync_day)가 맞춘다.
+  Future<void> saveMeal({
+    required String date,
+    required MealSlot slot,
+    required String description,
+    required Set<MealTag> tags,
+    String? newPhotoPath,
+    bool removePhoto = false,
+  }) async {
+    final client = requireSupabase();
+    final user = client.auth.currentUser;
+    if (user == null) throw StateError('로그인이 필요합니다.');
+    final row = await client
+        .from('meal_entries')
+        .select()
+        .eq('user_id', user.id)
+        .eq('record_date', date)
+        .eq('slot', slot.dbValue)
+        .maybeSingle();
+    final existing = row == null ? null : MealEntry.fromMap(row);
+
+    var photoPath = removePhoto ? null : existing?.photoPath;
+    if (newPhotoPath != null) {
+      photoPath = await _uploadPhoto(
+        userId: user.id,
+        name: '$date-${slot.dbValue}',
+        path: newPhotoPath,
+        bucket: 'meal-photos',
+      );
+    }
+    final text = description.trim();
+    if (photoPath == null && text.isEmpty) {
+      throw StateError('사진이나 메뉴 중 하나는 필요합니다.');
+    }
+
+    await client.from('meal_entries').upsert({
+      'user_id': user.id,
+      'record_date': date,
+      'slot': slot.dbValue,
+      'photo_url': photoPath,
+      'description': text.isEmpty ? null : text,
+      'tags': tags.isEmpty
+          ? null
+          : [
+              for (final tag in MealTag.values)
+                if (tags.contains(tag)) tag.dbValue,
+            ],
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    }, onConflict: 'user_id,record_date,slot');
+  }
+
+  /// 한 끼를 지운다. 사진 파일은 스토리지에 둔다.
+  Future<void> deleteMeal({required String date, required MealSlot slot}) async {
+    final client = requireSupabase();
+    final user = client.auth.currentUser;
+    if (user == null) throw StateError('로그인이 필요합니다.');
+    await client
+        .from('meal_entries')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('record_date', date)
+        .eq('slot', slot.dbValue);
   }
 
   Future<void> poke({required String groupId, required String receiverId}) async {
@@ -314,7 +427,7 @@ class RecordRepository {
 
   Future<String> _uploadPhoto({
     required String userId,
-    required String date,
+    required String name,
     required String path,
     required String bucket,
   }) async {
@@ -329,7 +442,7 @@ class RecordRepository {
     if (compressed == null) {
       throw StateError('사진을 압축하지 못했습니다.');
     }
-    final objectPath = '$userId/$date.jpg';
+    final objectPath = '$userId/$name.jpg';
     await client.storage
         .from(bucket)
         .uploadBinary(objectPath, compressed, fileOptions: const FileOptions(upsert: true, contentType: 'image/jpeg'));

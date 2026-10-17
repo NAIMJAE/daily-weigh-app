@@ -1,9 +1,12 @@
+import 'package:daily_weigh/core/utils/local_date.dart';
 import 'package:daily_weigh/core/utils/points.dart';
 import 'package:daily_weigh/core/utils/storage_path.dart';
 import 'package:daily_weigh/core/utils/streak.dart';
 import 'package:daily_weigh/core/utils/weight.dart';
 import 'package:daily_weigh/data/models/daily_record.dart';
+import 'package:daily_weigh/data/models/meal_entry.dart';
 import 'package:daily_weigh/data/models/profile.dart';
+import 'package:daily_weigh/features/records/write/meal_write_screen.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -108,5 +111,37 @@ void main() {
   test('체중은 0.1kg 단위로 반올림한다', () {
     expect(roundWeight('70.14'), 70.1);
     expect(roundWeight('70.16'), 70.2);
+  });
+
+  test('식단 끼니는 지금 시각으로 고른다', () {
+    expect(mealSlotForNow(DateTime(2026, 10, 18, 7)), MealSlot.breakfast);
+    expect(mealSlotForNow(DateTime(2026, 10, 18, 10, 30)), MealSlot.lunch);
+    expect(mealSlotForNow(DateTime(2026, 10, 18, 18)), MealSlot.dinner);
+    expect(mealSlotForNow(DateTime(2026, 10, 18, 23)), MealSlot.snack);
+  });
+
+  test('기록은 오늘과 어제만 고칠 수 있다', () {
+    final now = DateTime.now();
+    expect(isEditableDay(now), isTrue);
+    expect(isEditableDay(DateTime(now.year, now.month, now.day - 1)), isTrue);
+    expect(isEditableDay(DateTime(now.year, now.month, now.day - 2)), isFalse);
+    expect(isEditableDay(DateTime(now.year, now.month, now.day + 1)), isFalse);
+  });
+
+  test('하루 기록의 끼니 표시만 있어도 식단을 한 날로 본다', () {
+    final record = DailyRecord.fromMap({'id': 'r', 'user_id': 'u', 'record_date': '2026-10-18', 'has_meal': true});
+    expect(record.hasMealToday, isTrue);
+    expect(record.isLogged, isTrue);
+  });
+
+  test('식단 태그는 알려진 값만 읽는다', () {
+    expect(mealTagsFrom(['home', 'cheat', 'unknown']), {MealTag.home, MealTag.cheat});
+  });
+
+  test('휴대폰 날짜가 서버보다 늦어 마지막 출석이 내일로 보여도 스트릭은 이어진다', () {
+    expect(
+      reconciledStreak(streakDays: 5, lastAttendDate: '2026-10-18', today: '2026-10-17', yesterday: '2026-10-16'),
+      5,
+    );
   });
 }

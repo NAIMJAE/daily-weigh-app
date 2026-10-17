@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_colors.dart';
-import '../record/record_sheet.dart';
 
-/// 하단 탭 (웹 하단 탭과 같은 구성: 얇은 아이콘 + 11 라벨, 가운데 떠 있는 기록 버튼).
+/// 하단 탭: 홈, 기록, 통계, 샵, 마이페이지 (얇은 아이콘 + 11 라벨).
 class AppShell extends StatelessWidget {
   const AppShell({super.key, required this.navigationShell});
 
@@ -29,36 +28,11 @@ class AppShell extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _tab(0, Icons.grid_view_outlined, Icons.grid_view_rounded, '대시보드'),
-                    _tab(1, Icons.visibility_outlined, Icons.visibility, '눈바디'),
-                    Expanded(
-                      child: Transform.translate(
-                        offset: const Offset(0, -14),
-                        child: Center(
-                          child: Semantics(
-                            button: true,
-                            label: '오늘 기록',
-                            child: Material(
-                              color: AppColors.accent,
-                              shape: const CircleBorder(side: BorderSide(color: AppColors.card, width: 3)),
-                              elevation: 6,
-                              shadowColor: AppColors.accent.withValues(alpha: 0.5),
-                              child: InkWell(
-                                customBorder: const CircleBorder(),
-                                onTap: () => showRecordSheet(context),
-                                child: const SizedBox(
-                                  width: 52,
-                                  height: 52,
-                                  child: Icon(Icons.add, color: Colors.white, size: 26),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
+                    _tab(0, Icons.grid_view_outlined, Icons.grid_view_rounded, '홈'),
+                    _tab(1, Icons.edit_calendar_outlined, Icons.edit_calendar, '기록'),
                     _tab(2, Icons.insights_outlined, Icons.insights, '통계'),
-                    _tab(3, Icons.person_outline, Icons.person, '마이페이지'),
+                    _tab(3, Icons.storefront_outlined, Icons.storefront, '샵'),
+                    _tab(4, Icons.person_outline, Icons.person, '마이페이지'),
                   ],
                 ),
               ),

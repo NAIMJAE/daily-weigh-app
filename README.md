@@ -27,6 +27,8 @@ Supabase 대시보드에서:
 2. `supabase/schema.sql` 전체를 SQL Editor에서 실행
 3. 이어서 `supabase/patch-permissions.sql` 실행 (점수·스트릭 트리거, 그룹 나가기·강퇴 함수, 권한)
 4. 이미 예전 스키마를 넣었다면 `supabase/patch-drop-character.sql`, `supabase/patch-groups-rls.sql`, `supabase/patch-permissions.sql` 순서로 실행
-5. Storage에 `body-photos`, `meal-photos` 버킷이 생겼는지 확인
+5. 이어서 `supabase/patch-meal-entries.sql`, `supabase/patch-record-flows.sql` 순서로 실행 (끼니별 식단, 식단 점수, 스트릭 다시 세기)
+   - 테스트 프로젝트에서 화면을 확인하려면 `supabase/seed-demo-records.sql`로 `demo01` 더미 기록을 넣는다
+6. Storage에 `body-photos`, `meal-photos` 버킷이 생겼는지 확인
 
 로그인은 웹과 같습니다. 아이디 `foo`는 `foo@dailyweigh.local`로 들어갑니다.

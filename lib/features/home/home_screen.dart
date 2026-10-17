@@ -9,7 +9,6 @@ import '../../core/theme/app_text.dart';
 import '../../core/utils/local_date.dart';
 import '../../data/models/daily_record.dart';
 import '../../data/models/group.dart';
-import '../../data/models/profile.dart';
 import '../../data/repositories/group_repository.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/app_top_bar.dart';
@@ -18,11 +17,11 @@ import '../../shared/widgets/section_title.dart';
 import '../../shared/widgets/status_chip.dart';
 import '../../shared/widgets/ui_parts.dart';
 import '../../shared/widgets/weight_chart.dart';
-import '../record/record_sheet.dart';
+import '../records/record_type.dart';
 import '../session/session_controller.dart';
 import 'home_controller.dart';
 
-/// 웹 대시보드와 같은 순서: 오늘 카드, BMI 스펙트럼, 체중 변화 그래프, 멤버.
+/// 순서: 기록 바로가기, BMI 스펙트럼, 체중 변화 그래프, 멤버.
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -45,9 +44,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(child: Text('$error')),
         data: (data) {
-          final profile = session?.profile;
           final myId = session?.userId;
-          final me = myId == null ? null : data.todayRecords[myId];
           final profiles = {for (final member in data.members) member.profile.id: member.profile};
           return RefreshIndicator(
             onRefresh: () async {
@@ -57,7 +54,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: ListView(
               padding: const EdgeInsets.all(AppSpacing.page),
               children: [
-                _TodayCard(groupName: group?.name ?? '', profile: profile, today: me),
+                const _RecordShortcuts(),
                 const SizedBox(height: AppSpacing.section),
                 AppCard(
                   child: Column(
@@ -150,57 +147,59 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
-class _TodayCard extends StatelessWidget {
-  const _TodayCard({required this.groupName, required this.profile, required this.today});
-
-  final String groupName;
-  final Profile? profile;
-  final DailyRecord? today;
+/// 눈바디, 식단, 운동 기록 화면으로 바로 가는 버튼. 기록 탭 안의 그 화면이 열린다.
+class _RecordShortcuts extends StatelessWidget {
+  const _RecordShortcuts();
 
   @override
   Widget build(BuildContext context) {
-    final logged = today?.isLogged ?? false;
-    final weight = today?.weight;
-    final start = profile?.startWeight;
-    final delta = weight != null && start != null ? weight - start : null;
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          const SectionTitle('기록 바로가기', icon: Icons.edit_calendar_outlined),
+          const SizedBox(height: 12),
           Row(
             children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: const BoxDecoration(color: AppColors.accent, shape: BoxShape.circle),
-              ),
-              const SizedBox(width: 8),
-              Expanded(child: Text(groupName, style: AppText.headline)),
-              if (weight != null) Text('${weight.toStringAsFixed(1)}kg', style: AppText.number(size: 15)),
+              for (final type in RecordType.values) ...[
+                if (type != RecordType.values.first) const SizedBox(width: AppSpacing.gap),
+                Expanded(child: _ShortcutButton(type: type)),
+              ],
             ],
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Expanded(child: Text(logged ? '오늘의 출석 완료! 🎉' : '아직 오늘 기록이 없어요. 하나만 남겨도 출석이에요.', style: AppText.label)),
-              if (delta != null)
-                NumText(
-                  '시작 대비 ${delta >= 0 ? '+' : ''}${delta.toStringAsFixed(1)}kg',
-                  style: AppText.number(
-                    size: 11,
-                    weight: FontWeight.w600,
-                    color: delta <= 0 ? AppColors.success : AppColors.danger,
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          FilledButton.icon(
-            onPressed: () => showRecordSheet(context),
-            icon: Icon(logged ? Icons.edit_outlined : Icons.add, size: 18),
-            label: Text(logged ? '기록 수정하기' : '오늘 기록하기'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ShortcutButton extends StatelessWidget {
+  const _ShortcutButton({required this.type});
+
+  final RecordType type;
+
+  @override
+  Widget build(BuildContext context) {
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(AppRadius.tile),
+      side: const BorderSide(color: AppColors.line),
+    );
+    return Material(
+      color: AppColors.canvas,
+      shape: shape,
+      child: InkWell(
+        customBorder: shape,
+        onTap: () => context.go(type.path),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          child: Column(
+            children: [
+              IconBadge(type.icon, size: 32),
+              const SizedBox(height: 6),
+              Text(type.label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+            ],
+          ),
+        ),
       ),
     );
   }
