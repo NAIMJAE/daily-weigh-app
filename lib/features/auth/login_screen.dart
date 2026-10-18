@@ -6,6 +6,7 @@ import '../../core/config/app_config.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_constants.dart';
 import '../../shared/widgets/app_card.dart';
+import '../../shared/widgets/app_logo.dart';
 import '../session/session_controller.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -98,14 +99,9 @@ class _Brand extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            CircleAvatar(radius: 6, backgroundColor: AppColors.accent),
-            SizedBox(width: 8),
-            Text(AppConstants.appName, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
-          ],
-        ),
+        const AppLogo(size: 64),
+        const SizedBox(height: 12),
+        const Text(AppConstants.appName, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
         const SizedBox(height: 8),
         const Text('아이디와 비밀번호로 들어옵니다.', style: TextStyle(color: AppColors.muted)),
       ],

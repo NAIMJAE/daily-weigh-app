@@ -36,7 +36,17 @@ Supabase 대시보드에서:
 
 ## 앱 아이콘
 
-원본은 `assets/icon/app_icon.svg`(눈금 저울)입니다. 안드로이드 리소스는 이 파일을 보고 직접 맞춥니다.
+원본은 `assets/icon/app_icon.svg`(눈금 저울)입니다. 모양을 바꾸면 아래를 모두 같이 고칩니다.
 
-- 안드로이드 8 이상: `android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml` (적응형·테마 아이콘). 저울 모양은 `drawable/ic_launcher_foreground.xml`, 바탕색은 `values/colors.xml`
-- 그보다 낮은 버전: `mipmap-*/ic_launcher.png` (48·72·96·144·192px)
+| 쓰는 곳 | 파일 |
+|---|---|
+| 런처 아이콘 (안드로이드 8 이상, 적응형·테마 아이콘) | `android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml`, 저울 `drawable/ic_launcher_foreground.xml`, 바탕색 `values/colors.xml` |
+| 런처 아이콘 (안드로이드 8 미만) | `mipmap-*/ic_launcher.png` |
+| 스플래시 (흰 바탕 가운데 128dp 아이콘) | `drawable/splash_logo.xml`. 12 이상은 `values-v31`·`values-night-v31/styles.xml`과 `drawable/splash_icon.xml`, 12 미만은 `drawable*/launch_background.xml` |
+| 앱 첫 로딩 화면, 로그인 화면 | `lib/shared/widgets/app_logo.dart` (`AppSplash`, `AppLogo`) |
+| 푸시 알림 상태바 아이콘 | `drawable/ic_stat_notify.xml` (흰색 실루엣). 푸시를 붙일 때 알림의 small icon으로 `@drawable/ic_stat_notify`, 색은 `@color/ic_launcher_background`를 지정 |
+| Play 스토어 아이콘 512×512 | `assets/icon/play_store_icon_512.png` (모서리 없음, Play가 깎음) |
+| Play 스토어 그래픽 이미지 1024×500 | `assets/icon/play_feature_graphic.png` |
+| 초대 링크 공유 미리보기 1200×630 | `assets/icon/og_invite.png`. 초대 링크 웹 페이지를 만들 때 `og:image`로 쓴다 |
+
+PNG는 저장소 루트에서 `powershell -ExecutionPolicy Bypass -File tool/icons/render_icons.ps1`로 다시 그립니다. `assets/icon/`은 앱에 묶이지 않습니다(`pubspec.yaml`에 넣지 않음).
