@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- assets/icon/app_icon.svg의 저울을 위로 6 옮기고 0.72배로 줄여 적응형 아이콘 안전 영역(지름 66) 안에 넣었다 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.72"
+        android:scaleY="0.72">
+        <path
+            android:pathData="M24,62a30,30 0 0,1 60,0"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="8"
+            android:strokeLineCap="round" />
+        <path
+            android:pathData="M54,62L68,40"
+            android:strokeColor="#111111"
+            android:strokeWidth="6"
+            android:strokeLineCap="round" />
+        <path
+            android:pathData="M47,62a7,7 0 1,0 14,0a7,7 0 1,0 -14,0z"
+            android:fillColor="#111111" />
+        <path
+            android:pathData="M33,74h42a3,3 0 0,1 0,6h-42a3,3 0 0,1 0,-6z"
+            android:fillColor="#FFFFFF"
+            android:fillAlpha="0.55" />
+    </group>
+</vector>
