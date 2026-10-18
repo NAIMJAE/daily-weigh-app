@@ -127,10 +127,8 @@ class _MealWriteScreenState extends ConsumerState<MealWriteScreen> {
         newPhotoPath: _pickedPath,
         removePhoto: _removePhoto && _pickedPath == null,
       );
-      await afterRecordSaved(ref);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${_slot.label} 식단을 저장했어요.')));
-      Navigator.pop(context);
+      await closeAfterRecordSaved(context, message: '${_slot.label} 식단을 저장했어요.');
     } catch (error) {
       if (mounted) setState(() => _error = friendlyError(error));
     } finally {
@@ -158,8 +156,7 @@ class _MealWriteScreenState extends ConsumerState<MealWriteScreen> {
     setState(() => _saving = true);
     try {
       await ref.read(recordRepositoryProvider).deleteMeal(date: localDateString(_date), slot: _slot);
-      await afterRecordSaved(ref);
-      if (mounted) Navigator.pop(context);
+      if (mounted) await closeAfterRecordSaved(context);
     } catch (error) {
       if (mounted) setState(() => _error = friendlyError(error));
     } finally {

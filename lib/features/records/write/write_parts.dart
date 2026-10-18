@@ -14,6 +14,18 @@ import '../../home/home_controller.dart';
 import '../../session/session_controller.dart';
 import '../record_browser.dart';
 
+/// 저장을 마친 기록 화면을 닫고, 다른 화면들이 기록을 다시 읽게 한다.
+/// 세션을 다시 읽으면 라우터가 다시 계산되어 그 뒤의 pop 이 먹히지 않을 수 있어서, 화면을 먼저 닫는다.
+Future<void> closeAfterRecordSaved(BuildContext context, {String? message}) async {
+  final container = ProviderScope.containerOf(context, listen: false);
+  final messenger = ScaffoldMessenger.of(context);
+  Navigator.of(context).pop();
+  if (message != null) messenger.showSnackBar(SnackBar(content: Text(message)));
+  container.read(recordRevisionProvider.notifier).bump();
+  container.invalidate(homeSnapshotProvider);
+  await container.read(sessionProvider.notifier).reload();
+}
+
 /// 기록을 저장한 뒤 화면들이 다시 읽게 한다. 지갑과 스트릭은 세션을 다시 읽어 맞춘다.
 Future<void> afterRecordSaved(WidgetRef ref) async {
   ref.read(recordRevisionProvider.notifier).bump();

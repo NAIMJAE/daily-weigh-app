@@ -48,6 +48,12 @@ class GroupRepository {
     await client.rpc('leave_group', params: {'p_group_id': group.id});
   }
 
+  /// 방장이 초대 코드를 새로 바꾼다. 예전 코드는 바로 못 쓴다.
+  Future<String> rotateInviteCode(String groupId) async {
+    final client = requireSupabase();
+    return await client.rpc('rotate_invite_code', params: {'p_group_id': groupId}) as String;
+  }
+
   Future<void> kickMember({required String groupId, required String ownerId, required String targetUserId}) async {
     if (ownerId == targetUserId) {
       throw StateError('방장은 자신을 내보낼 수 없습니다.');

@@ -1,6 +1,7 @@
 -- 기록 화면 확인용 더미 데이터. 앱 전용 테스트 프로젝트에서만 실행한다. 운영 DB에는 실행하지 않는다.
 -- 대상은 아래 demo_user 의 username 한 명이고, 오늘 포함 최근 35일을 채운다.
--- 1) 끼니별 식단 (meal_entries). 사진은 공개 음식 이미지 주소(TheMealDB)라 스토리지 파일이 없다.
+-- 1) 끼니별 식단 (meal_entries). 사진 없이 메뉴만 둔다. 앱은 바깥 이미지 주소를 보여 주지 않고,
+--    patch-security.sql 이후로는 내 저장소에 올린 사진만 넣을 수 있다. 예전에 넣은 바깥 주소는 다시 실행하면 지워진다.
 -- 2) 운동. 이미 있는 하루 기록 중 운동이 비어 있는 날에만 넣는다. 새 하루 기록은 만들지 않는다.
 --    운동을 넣으면 점수 트리거가 그 날 점수와 지갑을 다시 계산한다. 스트릭은 바뀌지 않는다.
 -- 다시 실행해도 된다. 식단은 같은 값으로 덮고, 운동은 비어 있는 날에만 들어간다.
@@ -13,41 +14,6 @@ with demo_user as (
 days as (
   select n, (now() at time zone 'Asia/Seoul')::date - n as day
   from generate_series(0, 34) as n
-),
-photos(slot, urls) as (
-  values
-    ('breakfast', array[
-      'https://www.themealdb.com/images/media/meals/jvjnoh1780086318.jpg',
-      'https://www.themealdb.com/images/media/meals/hqaejl1695738653.jpg',
-      'https://www.themealdb.com/images/media/meals/1550441882.jpg',
-      'https://www.themealdb.com/images/media/meals/oaqz9f1766593912.jpg',
-      'https://www.themealdb.com/images/media/meals/3m8yae1763257951.jpg',
-      'https://www.themealdb.com/images/media/meals/tbj1bs1764118062.jpg'
-    ]),
-    ('lunch', array[
-      'https://www.themealdb.com/images/media/meals/vdwloy1713225718.jpg',
-      'https://www.themealdb.com/images/media/meals/020z181619788503.jpg',
-      'https://www.themealdb.com/images/media/meals/usywpp1511189717.jpg',
-      'https://www.themealdb.com/images/media/meals/0jv5gx1661040802.jpg',
-      'https://www.themealdb.com/images/media/meals/8rfd4q1764112993.jpg',
-      'https://www.themealdb.com/images/media/meals/zub3s91764110535.jpg',
-      'https://www.themealdb.com/images/media/meals/nmxec11782498644.jpg'
-    ]),
-    ('dinner', array[
-      'https://www.themealdb.com/images/media/meals/dxs5t71782678369.jpg',
-      'https://www.themealdb.com/images/media/meals/diuub11782687570.jpg',
-      'https://www.themealdb.com/images/media/meals/jc6oub1763196663.jpg',
-      'https://www.themealdb.com/images/media/meals/13fg4j1764441982.jpg',
-      'https://www.themealdb.com/images/media/meals/jgl9qq1764437635.jpg',
-      'https://www.themealdb.com/images/media/meals/9ya6o71780262651.jpg',
-      'https://www.themealdb.com/images/media/meals/02s6gc1763799560.jpg'
-    ]),
-    ('snack', array[
-      'https://www.themealdb.com/images/media/meals/wkhg581762773124.jpg',
-      'https://www.themealdb.com/images/media/meals/a4kgf21763075288.jpg',
-      'https://www.themealdb.com/images/media/meals/q47rkb1762324620.jpg',
-      'https://www.themealdb.com/images/media/meals/adxcbq1619787919.jpg'
-    ])
 ),
 notes(slot, texts) as (
   values
@@ -64,15 +30,12 @@ select
   demo_user.id,
   days.day,
   slots.slot,
-  -- 열흘에 한 번쯤은 사진 없이 설명만 남긴 끼니로 둔다.
-  case when (days.n + slots.i) % 9 = 4 then null
-       else photos.urls[1 + (days.n * 3 + slots.i) % cardinality(photos.urls)] end,
+  null,
   notes.texts[1 + (days.n * 5 + slots.i) % cardinality(notes.texts)],
   now()
 from demo_user
 cross join days
 cross join slots
-join photos on photos.slot = slots.slot
 join notes on notes.slot = slots.slot
 where
   -- 끼니마다 가끔 건너뛰고, 간식은 사흘에 한 번만 먹는다. 오늘은 아침·점심만 있다.

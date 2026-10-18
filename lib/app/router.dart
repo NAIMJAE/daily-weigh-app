@@ -33,7 +33,19 @@ class _RouterRefresh extends ChangeNotifier {
 final routerProvider = Provider<GoRouter>((ref) {
   final refresh = _RouterRefresh();
   ref.onDispose(refresh.dispose);
-  ref.listen(sessionProvider, (_, _) => refresh.ping());
+  // 리다이렉트가 보는 값(로그인, 온보딩, 첫 로딩)이 바뀔 때만 라우터를 다시 계산한다.
+  // 기록을 저장할 때마다 세션을 다시 읽는데, 그때마다 다시 계산하면 방금 닫은 화면이 되살아난다.
+  ({bool loading, bool loggedIn, bool onboarding}) gate(AsyncValue<SessionState> session) {
+    final value = session.value;
+    return (
+      loading: session.isLoading && !session.hasValue,
+      loggedIn: value?.isLoggedIn ?? false,
+      onboarding: value?.needsOnboarding ?? false,
+    );
+  }
+  ref.listen(sessionProvider, (previous, next) {
+    if (previous == null || gate(previous) != gate(next)) refresh.ping();
+  });
 
   return GoRouter(
     initialLocation: '/home',

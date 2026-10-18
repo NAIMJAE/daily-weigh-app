@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/utils/local_date.dart';
 import '../../core/utils/points.dart';
+import '../../core/utils/storage_path.dart';
 import '../../core/utils/weight.dart';
 import '../models/daily_record.dart';
 import '../models/meal_entry.dart';
@@ -97,11 +98,13 @@ class RecordRepository {
     ];
   }
 
-  static const _signedUrlSeconds = 60 * 60 * 24;
+  /// 서명 URL은 1시간만 쓴다. 그룹에서 나가거나 사진을 뺀 뒤에도 예전 주소로 오래 보이지 않게 한다.
+  /// 이미지 캐시는 저장 경로로 찾으므로, 이미 받은 사진은 주소가 만료돼도 그대로 보인다.
+  static const _signedUrlSeconds = 60 * 60;
 
+  /// 우리 저장소의 경로만 서명한다. 바깥 주소(http)는 그룹원 기기가 낯선 서버에 접속하게 되므로 보여 주지 않는다.
   Future<String?> signUrl(String bucket, String? path) async {
-    if (path == null || path.isEmpty) return null;
-    if (path.startsWith('http')) return path;
+    if (path == null || path.isEmpty || path.startsWith('http')) return null;
     final client = requireSupabase();
     return client.storage.from(bucket).createSignedUrl(path, _signedUrlSeconds);
   }
@@ -111,12 +114,8 @@ class RecordRepository {
     final result = <String, String>{};
     final toSign = <String>{};
     for (final path in paths) {
-      if (path == null || path.isEmpty) continue;
-      if (path.startsWith('http')) {
-        result[path] = path;
-      } else {
-        toSign.add(path);
-      }
+      if (path == null || path.isEmpty || path.startsWith('http')) continue;
+      toSign.add(path);
     }
     if (toSign.isEmpty) return result;
     final client = requireSupabase();
@@ -337,6 +336,10 @@ class RecordRepository {
       'memo': note.isEmpty ? null : note,
       'updated_at': DateTime.now().toUtc().toIso8601String(),
     }, onConflict: 'user_id,record_date');
+    // 사진을 빼면 파일도 지워서 그룹원이 더 볼 수 없게 한다.
+    if (removePhoto && newPhotoPath == null) {
+      await _removeOwnPhoto(userId: user.id, bucket: 'body-photos', path: existing?.bodyPhotoPath);
+    }
   }
 
   /// 그 날을 휴식 데이로 남긴다. 루틴 순서는 그대로고, 달력에는 '휴'로 보인다.
@@ -397,26 +400,54 @@ class RecordRepository {
       'category': category.dbValue,
       'updated_at': DateTime.now().toUtc().toIso8601String(),
     }, onConflict: 'user_id,record_date,slot');
+    if (removePhoto && newPhotoPath == null) {
+      await _removeOwnPhoto(userId: user.id, bucket: 'meal-photos', path: existing?.photoPath);
+    }
   }
 
-  /// 한 끼를 지운다. 사진 파일은 스토리지에 둔다.
+  /// 한 끼를 지운다. 사진 파일도 지워서 그룹원이 더 볼 수 없게 한다.
   Future<void> deleteMeal({required String date, required MealSlot slot}) async {
     final client = requireSupabase();
     final user = client.auth.currentUser;
     if (user == null) throw StateError('로그인이 필요합니다.');
-    await client
+    final rows = await client
         .from('meal_entries')
         .delete()
         .eq('user_id', user.id)
         .eq('record_date', date)
-        .eq('slot', slot.dbValue);
+        .eq('slot', slot.dbValue)
+        .select('photo_url');
+    for (final row in rows as List) {
+      await _removeOwnPhoto(
+        userId: user.id,
+        bucket: 'meal-photos',
+        path: canonicalStoragePath((row as Map)['photo_url'] as String?, 'meal-photos'),
+      );
+    }
+  }
+
+  /// 내 폴더의 사진 파일을 지운다. 기록은 이미 저장됐으니 파일 지우기가 실패해도 넘어간다.
+  Future<void> _removeOwnPhoto({required String userId, required String bucket, required String? path}) async {
+    if (path == null || !path.startsWith('$userId/')) return;
+    try {
+      await requireSupabase().storage.from(bucket).remove([path]);
+    } on StorageException {
+      // 다음에 같은 날 사진을 올리면 덮어쓴다.
+    }
   }
 
   Future<void> poke({required String groupId, required String receiverId}) async {
     final client = requireSupabase();
     final senderId = client.auth.currentUser?.id;
     if (senderId == null) return;
-    await client.from('pokes').insert({'group_id': groupId, 'sender_id': senderId, 'receiver_id': receiverId});
+    try {
+      await client.from('pokes').insert({'group_id': groupId, 'sender_id': senderId, 'receiver_id': receiverId});
+    } on PostgrestException catch (error) {
+      // 같은 사람은 하루 한 번만 찌를 수 있다(서버 정책).
+      // 오늘 이미 찔렀거나, 상대가 나를 차단했을 때다. 차단 여부는 알리지 않는다.
+      if (error.code == '42501') throw StateError('오늘은 더 찌를 수 없어요. 내일 다시 찔러 주세요.');
+      rethrow;
+    }
   }
 
   Future<void> addComment({
@@ -435,6 +466,11 @@ class RecordRepository {
       'photo_kind': photoKind,
       'body': body.trim(),
     });
+  }
+
+  /// 내 댓글이나, 내 사진에 달린 댓글을 지운다(서버 정책 comments_delete).
+  Future<void> deleteComment(String commentId) async {
+    await requireSupabase().from('comments').delete().eq('id', commentId);
   }
 
   Future<List<Map<String, dynamic>>> fetchComments({required String groupId, required String recordId}) async {
