@@ -1,19 +1,35 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../workout/active_workout_controller.dart';
+import '../workout/today_routine_card.dart';
 
 /// 하단 탭: 홈, 기록, 통계, 샵, 마이페이지 (얇은 아이콘 + 11 라벨).
-class AppShell extends StatelessWidget {
+/// 끝내지 않은 운동이 있으면 탭 바로 위에 이어 하기 시트가 붙는다.
+class AppShell extends ConsumerWidget {
   const AppShell({super.key, required this.navigationShell});
 
   final StatefulNavigationShell navigationShell;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final activeWorkout = ref.watch(activeWorkoutProvider).value;
     return Scaffold(
       body: navigationShell,
-      bottomNavigationBar: DecoratedBox(
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (activeWorkout != null) ResumeWorkoutBar(workout: activeWorkout),
+          _tabBar(),
+        ],
+      ),
+    );
+  }
+
+  Widget _tabBar() {
+    return DecoratedBox(
         decoration: const BoxDecoration(
           color: AppColors.card,
           border: Border(top: BorderSide(color: AppColors.line)),
@@ -39,7 +55,6 @@ class AppShell extends StatelessWidget {
             ),
           ),
         ),
-      ),
     );
   }
 

@@ -135,85 +135,107 @@ class TodayRoutineCard extends ConsumerWidget {
   }
 }
 
-/// 진행 중인 운동이 있으면 시작 버튼 대신 이어 하기를 보여 준다. 앱이 꺼졌다 켜져도 남아 있다.
-class ResumeWorkoutBox extends ConsumerWidget {
-  const ResumeWorkoutBox({super.key, required this.workout});
+/// 끝내지 않은 운동이 있으면 하단 탭 바로 위에 붙는 시트. 어느 탭에서든 눌러서 이어 한다.
+/// 앱이 꺼졌다 켜져도 남아 있다.
+class ResumeWorkoutBar extends ConsumerWidget {
+  const ResumeWorkoutBar({super.key, required this.workout});
 
   final ActiveWorkout workout;
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final today = localDateString();
-    final started = workout.recordDate == today
-        ? (workout.live ? '오늘 운동 중' : '오늘 기록 채우는 중')
-        : '${workout.recordDate.substring(5).replaceAll('-', '.')} 기록 ${workout.live ? '운동 중' : '채우는 중'}';
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.accentSoft,
-        borderRadius: BorderRadius.circular(AppRadius.tile),
-        border: Border.all(color: AppColors.chipFill),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.fitness_center, size: 16, color: AppColors.accent),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  '진행 중인 운동이 있어요 · ${workout.dayName ?? '운동'}',
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-                ),
-              ),
-              NumText(
-                '${workout.doneSets}/${workout.totalSets}세트',
-                style: AppText.number(size: 12, color: AppColors.accent),
-              ),
-            ],
-          ),
-          const SizedBox(height: 2),
-          Text(started, style: AppText.caption),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  style: OutlinedButton.styleFrom(foregroundColor: AppColors.muted),
-                  onPressed: () async {
-                    final ok = await showDialog<bool>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('운동을 버릴까요?'),
-                        content: const Text('체크한 세트도 모두 사라져요.'),
-                        actions: [
-                          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('취소')),
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, true),
-                            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-                            child: const Text('버리기'),
-                          ),
-                        ],
-                      ),
-                    );
-                    if (ok == true) await ref.read(activeWorkoutProvider.notifier).discard();
-                  },
-                  child: const Text('버리기'),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.gap),
-              Expanded(
-                flex: 2,
-                child: FilledButton.icon(
-                  onPressed: () => context.push('/workout/session'),
-                  icon: const Icon(Icons.play_arrow, size: 18),
-                  label: const Text('이어 하기'),
-                ),
-              ),
-            ],
+  String get _status {
+    final doing = workout.live ? '운동 중' : '기록 채우는 중';
+    if (workout.recordDate == localDateString()) return '오늘 $doing';
+    return '${workout.recordDate.substring(5).replaceAll('-', '.')} $doing';
+  }
+
+  Future<void> _confirmDiscard(BuildContext context, WidgetRef ref) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('운동을 버릴까요?'),
+        content: const Text('체크한 세트도 모두 사라져요.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('취소')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+            child: const Text('버리기'),
           ),
         ],
+      ),
+    );
+    if (ok == true) await ref.read(activeWorkoutProvider.notifier).discard();
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final total = workout.totalSets;
+    return Material(
+      color: AppColors.card,
+      elevation: 8,
+      shadowColor: Colors.black26,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.sheet)),
+        side: BorderSide(color: AppColors.line),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => context.push('/workout/session'),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 체크한 세트만큼 위쪽 가장자리가 채워진다.
+            LinearProgressIndicator(
+              value: total == 0 ? 0 : workout.doneSets / total,
+              minHeight: 3,
+              backgroundColor: AppColors.chipFill,
+              color: AppColors.accent,
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.page, 10, 8, 10),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: const BoxDecoration(color: AppColors.chipFill, shape: BoxShape.circle),
+                    child: const Icon(Icons.fitness_center, size: 18, color: AppColors.accent),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${workout.dayName ?? '운동'} 진행 중',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 2),
+                        NumText('${workout.doneSets}/$total세트 · $_status', style: AppText.caption),
+                      ],
+                    ),
+                  ),
+                  FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(0, 36),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                    ),
+                    onPressed: () => context.push('/workout/session'),
+                    icon: const Icon(Icons.play_arrow, size: 18),
+                    label: const Text('이어 하기'),
+                  ),
+                  IconButton(
+                    tooltip: '운동 버리기',
+                    onPressed: () => _confirmDiscard(context, ref),
+                    icon: const Icon(Icons.close, size: 20, color: AppColors.faint),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
