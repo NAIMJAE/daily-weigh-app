@@ -20,6 +20,8 @@ class WeightChart extends StatelessWidget {
     required this.absolute,
     this.myId,
     this.height = 200,
+    this.xLabel,
+    this.userOrder,
   });
 
   final List<DailyRecord> records;
@@ -28,6 +30,12 @@ class WeightChart extends StatelessWidget {
   final bool absolute;
   final String? myId;
   final double height;
+
+  /// 아래 축 이름. 없으면 '월.일'. 주·달 평균 그래프는 칸 이름을 넘긴다.
+  final String Function(String date)? xLabel;
+
+  /// 멤버 색 순서. 주면 이 순서의 n번째 색을 쓴다. 통계의 식단·운동 그래프와 같은 사람이 같은 색이 된다.
+  final List<String>? userOrder;
 
   /// 변화량의 0점: 프로필의 시작 체중, 없으면 가장 오래된 체중.
   double _baseline(String userId) {
@@ -50,9 +58,17 @@ class WeightChart extends StatelessWidget {
     }
     final index = {for (var i = 0; i < dates.length; i++) dates[i]: i.toDouble()};
     // 내 선을 첫 번째 색으로.
+    final order = userOrder;
     final userIds = weighed.map((record) => record.userId).toSet().toList()
-      ..sort((a, b) => (b == myId ? 1 : 0) - (a == myId ? 1 : 0));
-    Color colorOf(int i) => AppColors.chartSeries[i % AppColors.chartSeries.length];
+      ..sort(
+        order == null
+            ? (a, b) => (b == myId ? 1 : 0) - (a == myId ? 1 : 0)
+            : (a, b) => order.indexOf(a).compareTo(order.indexOf(b)),
+      );
+    Color colorOf(int i) {
+      final slot = order == null ? i : max(0, order.indexOf(userIds[i]));
+      return AppColors.chartSeries[slot % AppColors.chartSeries.length];
+    }
 
     final bars = <LineChartBarData>[];
     var minY = double.infinity;
@@ -158,12 +174,12 @@ class WeightChart extends StatelessWidget {
                       if ((value - i).abs() > 1e-6 || i < 0 || i >= dates.length) return const SizedBox.shrink();
                       final last = i == dates.length - 1;
                       if (i % labelEvery != 0 && !last) return const SizedBox.shrink();
-                      if (!last && dates.length - 1 - i < labelEvery / 2) return const SizedBox.shrink();
+                      if (!last && dates.length - 1 - i < labelEvery) return const SizedBox.shrink();
                       final d = parseLocalDate(dates[i]);
                       return SideTitleWidget(
                         meta: meta,
                         child: Text(
-                          '${d.month}.${d.day}',
+                          xLabel?.call(dates[i]) ?? '${d.month}.${d.day}',
                           style: AppText.number(size: 9.5, weight: FontWeight.w500, color: AppColors.faint),
                         ),
                       );
@@ -188,6 +204,8 @@ class WeightChart extends StatelessWidget {
                 ],
               ),
               lineTouchData: LineTouchData(
+                // 손가락이나 마우스가 가까운 날짜 위에 있으면 그 날 값을 보여 준다(세로 위치는 상관없다).
+                touchSpotThreshold: 40,
                 touchTooltipData: LineTouchTooltipData(
                   getTooltipColor: (_) => AppColors.ink,
                   fitInsideHorizontally: true,

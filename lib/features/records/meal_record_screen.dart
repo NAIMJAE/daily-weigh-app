@@ -47,13 +47,13 @@ class _MealRecordScreenState extends ConsumerState<MealRecordScreen> {
               dayOf: (date) {
                 final entry = byKey[mealKey(localDateString(date), _slot)];
                 final description = entry?.description?.trim() ?? '';
-                final tags = entry?.tagSummary ?? '';
+                final category = entry?.category?.label;
                 return RecordDay(
                   photoUrl: entry?.photoUrl,
                   cacheKey: entry?.photoCacheKey,
                   lines: [
                     if (description.isNotEmpty) description,
-                    if (tags.isNotEmpty) tags,
+                    ?category,
                   ],
                 );
               },

@@ -42,7 +42,7 @@ class _MealWriteScreenState extends ConsumerState<MealWriteScreen> {
   late DateTime _date = editableDayFrom(widget.date);
   late MealSlot _slot = mealSlotFrom(widget.slot) ?? mealSlotForNow();
   Map<String, MealEntry> _entries = {};
-  Set<MealTag> _tags = {};
+  MealCategory? _category;
   String? _pickedPath;
   var _removePhoto = false;
   var _loading = true;
@@ -83,7 +83,7 @@ class _MealWriteScreenState extends ConsumerState<MealWriteScreen> {
   void _fillDraft() {
     final existing = _existing;
     _description.text = existing?.description ?? '';
-    _tags = {...?existing?.tags};
+    _category = existing?.category;
     _pickedPath = null;
     _removePhoto = false;
     _error = null;
@@ -98,7 +98,8 @@ class _MealWriteScreenState extends ConsumerState<MealWriteScreen> {
   }
 
   bool get _hasPhoto => _pickedPath != null || (!_removePhoto && _existing?.photoUrl != null);
-  bool get _canSave => !_loading && (_hasPhoto || _description.text.trim().isNotEmpty);
+  bool get _hasContent => _hasPhoto || _description.text.trim().isNotEmpty;
+  bool get _canSave => !_loading && _hasContent && _category != null;
 
   /// 식단 점수는 하루 한 번이다. 그 날 다른 끼니가 이미 있으면 더 오르지 않는다.
   bool get _dayHasOtherMeal {
@@ -122,7 +123,7 @@ class _MealWriteScreenState extends ConsumerState<MealWriteScreen> {
         date: localDateString(_date),
         slot: _slot,
         description: _description.text,
-        tags: _tags,
+        category: _category!,
         newPhotoPath: _pickedPath,
         removePhoto: _removePhoto && _pickedPath == null,
       );
@@ -233,25 +234,25 @@ class _MealWriteScreenState extends ConsumerState<MealWriteScreen> {
                           decoration: const InputDecoration(hintText: '예: 닭가슴살 샐러드', counterText: ''),
                           onChanged: (_) => setState(() {}),
                         ),
-                        const SizedBox(height: 12),
-                        Wrap(
-                          spacing: AppSpacing.chip,
-                          runSpacing: AppSpacing.chip,
-                          children: [
-                            for (final tag in MealTag.values)
-                              FilterChip(
-                                label: Text(tag.label),
-                                selected: _tags.contains(tag),
-                                onSelected: (selected) => setState(() {
-                                  if (selected) {
-                                    _tags.add(tag);
-                                  } else {
-                                    _tags.remove(tag);
-                                  }
-                                }),
-                              ),
-                          ],
-                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.section),
+                AppCard(
+                  child: WriteSection(
+                    title: '어떤 식사였나요?',
+                    // 통계의 식사 종류 비율에 들어가서 한 끼에 하나만 고른다.
+                    child: Wrap(
+                      spacing: AppSpacing.chip,
+                      runSpacing: AppSpacing.chip,
+                      children: [
+                        for (final category in MealCategory.values)
+                          ChoiceChip(
+                            label: Text(category.label),
+                            selected: _category == category,
+                            onSelected: (_) => setState(() => _category = category),
+                          ),
                       ],
                     ),
                   ),
@@ -264,8 +265,10 @@ class _MealWriteScreenState extends ConsumerState<MealWriteScreen> {
             ),
       bottomNavigationBar: SaveBar(
         note: _dayHasOtherMeal ? '식단 점수는 하루 한 번이라 이 끼니로는 더 오르지 않아요.' : null,
-        label: !_canSave
+        label: !_hasContent
             ? '사진이나 메뉴를 넣어 주세요'
+            : _category == null
+            ? '식사 종류를 골라 주세요'
             : _dayHasOtherMeal || existing != null
             ? '저장하기'
             : '저장하기 · +${PointRules.mealPhoto}P',

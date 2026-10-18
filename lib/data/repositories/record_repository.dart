@@ -164,6 +164,20 @@ class RecordRepository {
     return [for (final entry in entries) entry.copyWith(photoUrl: signed[entry.photoPath])];
   }
 
+  /// 그룹 통계용. 기간 안의 끼니를 여러 사람 것까지 읽는다. 사진 URL은 만들지 않는다.
+  Future<List<MealEntry>> fetchMealEntriesForUsers(List<String> userIds, {required String from, required String to}) async {
+    if (userIds.isEmpty) return [];
+    final rows = await requireSupabase()
+        .from('meal_entries')
+        .select()
+        .inFilter('user_id', userIds)
+        .gte('record_date', from)
+        .lte('record_date', to);
+    return [
+      for (final row in rows as List) ?MealEntry.fromMap(Map<String, dynamic>.from(row as Map)),
+    ];
+  }
+
   /// 차트·통계용. 사진 URL은 만들지 않는다.
   Future<List<DailyRecord>> fetchForUsers(List<String> userIds) async {
     if (userIds.isEmpty) return [];
@@ -344,7 +358,7 @@ class RecordRepository {
     required String date,
     required MealSlot slot,
     required String description,
-    required Set<MealTag> tags,
+    required MealCategory category,
     String? newPhotoPath,
     bool removePhoto = false,
   }) async {
@@ -380,12 +394,7 @@ class RecordRepository {
       'slot': slot.dbValue,
       'photo_url': photoPath,
       'description': text.isEmpty ? null : text,
-      'tags': tags.isEmpty
-          ? null
-          : [
-              for (final tag in MealTag.values)
-                if (tags.contains(tag)) tag.dbValue,
-            ],
+      'category': category.dbValue,
       'updated_at': DateTime.now().toUtc().toIso8601String(),
     }, onConflict: 'user_id,record_date,slot');
   }

@@ -23,29 +23,29 @@ extension MealSlotX on MealSlot {
   };
 }
 
-/// 끼니에 붙이는 빠른 태그. 여러 개 고를 수 있다.
-enum MealTag { home, eatout, delivery, salad, simple, cheat }
+/// 끼니의 식사 종류. 한 끼에 하나만 고른다. 통계의 식사 종류 비율이 이 값으로 센다.
+enum MealCategory { home, eatout, delivery, salad, simple, cheat }
 
-extension MealTagX on MealTag {
+extension MealCategoryX on MealCategory {
   String get dbValue => name;
 
   String get label => switch (this) {
-    MealTag.home => '집밥',
-    MealTag.eatout => '외식',
-    MealTag.delivery => '배달',
-    MealTag.salad => '샐러드',
-    MealTag.simple => '간편식',
-    MealTag.cheat => '치팅',
+    MealCategory.home => '집밥',
+    MealCategory.eatout => '외식',
+    MealCategory.delivery => '배달',
+    MealCategory.salad => '샐러드',
+    MealCategory.simple => '간편식',
+    MealCategory.cheat => '치팅',
   };
 }
 
-Set<MealTag> mealTagsFrom(Object? raw) {
-  if (raw is! List) return {};
-  return {
-    for (final item in raw)
-      for (final tag in MealTag.values)
-        if (tag.dbValue == '$item') tag,
-  };
+/// 종류 칸을 읽는다. 종류가 없는 예전 기록은 첫 태그(tags)를 종류로 본다.
+MealCategory? mealCategoryFrom(Object? category, [Object? legacyTags]) {
+  final value = category ?? (legacyTags is List && legacyTags.isNotEmpty ? legacyTags.first : null);
+  for (final item in MealCategory.values) {
+    if (item.dbValue == '$value') return item;
+  }
+  return null;
 }
 
 /// 하루 한 끼의 식단 기록. 사용자·날짜·끼니마다 하나다.
@@ -58,7 +58,7 @@ class MealEntry {
     this.photoPath,
     this.photoUrl,
     this.description,
-    this.tags = const {},
+    this.category,
     this.updatedAt,
   });
 
@@ -69,13 +69,8 @@ class MealEntry {
   final String? photoPath;
   final String? photoUrl;
   final String? description;
-  final Set<MealTag> tags;
+  final MealCategory? category;
   final DateTime? updatedAt;
-
-  String get tagSummary => [
-    for (final tag in MealTag.values)
-      if (tags.contains(tag)) tag.label,
-  ].join(' · ');
 
   // DailyRecord 와 같이 서명 URL 대신 저장 경로와 수정 시각으로 캐시를 찾는다.
   String? get photoCacheKey {
@@ -92,7 +87,7 @@ class MealEntry {
       photoPath: photoPath,
       photoUrl: photoUrl ?? this.photoUrl,
       description: description,
-      tags: tags,
+      category: category,
       updatedAt: updatedAt,
     );
   }
@@ -107,7 +102,7 @@ class MealEntry {
       slot: slot,
       photoPath: canonicalStoragePath(map['photo_url'] as String?, 'meal-photos'),
       description: map['description'] as String?,
-      tags: mealTagsFrom(map['tags']),
+      category: mealCategoryFrom(map['category'], map['tags']),
       updatedAt: map['updated_at'] == null ? null : DateTime.tryParse(map['updated_at'] as String),
     );
   }
