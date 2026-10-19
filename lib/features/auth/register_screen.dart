@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../legal/terms_screen.dart';
 import '../session/session_controller.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
@@ -17,6 +18,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _nickname = TextEditingController();
   final _password = TextEditingController();
   var _loading = false;
+  var _agreed = false;
   String? _error;
 
   @override
@@ -28,6 +30,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   Future<void> _submit() async {
+    if (!_agreed) return;
     setState(() {
       _loading = true;
       _error = null;
@@ -78,8 +81,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             const SizedBox(height: 12),
             Text(_error!, style: const TextStyle(color: AppColors.danger)),
           ],
-          const SizedBox(height: 20),
-          FilledButton(onPressed: _loading ? null : _submit, child: Text(_loading ? '가입 처리 중...' : '다음')),
+          const SizedBox(height: 16),
+          CheckboxListTile(
+            value: _agreed,
+            onChanged: (value) => setState(() => _agreed = value ?? false),
+            controlAffinity: ListTileControlAffinity.leading,
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            title: const Text('만 14세 이상이며, 이용약관과 개인정보처리방침에 동의합니다.'),
+          ),
+          PolicyLinks(onTerms: () => context.push('/terms')),
+          const SizedBox(height: 8),
+          FilledButton(onPressed: _loading || !_agreed ? null : _submit, child: Text(_loading ? '가입 처리 중...' : '다음')),
           TextButton(onPressed: () => context.go('/login'), child: const Text('이미 계정이 있으면 로그인')),
         ],
       ),

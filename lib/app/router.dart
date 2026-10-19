@@ -6,6 +6,7 @@ import '../features/auth/login_screen.dart';
 import '../features/auth/register_screen.dart';
 import '../features/calendar/photo_calendar_screen.dart';
 import '../features/home/home_screen.dart';
+import '../features/legal/terms_screen.dart';
 import '../features/member_room/member_room_screen.dart';
 import '../features/mypage/body_edit_screen.dart';
 import '../features/mypage/mypage_screen.dart';
@@ -58,6 +59,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       final onAuth = path == '/login' || path == '/register';
       final onOnboarding = path == '/onboarding';
 
+      // 이용약관은 가입 전에도, 로그인한 뒤에도 연다.
+      if (path == '/terms') return null;
       if (!value.isLoggedIn) {
         return onAuth ? null : '/login';
       }
@@ -70,6 +73,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(path: '/register', builder: (context, state) => const RegisterScreen()),
+      GoRoute(path: '/terms', builder: (context, state) => const TermsScreen()),
       GoRoute(path: '/onboarding', builder: (context, state) => const OnboardingScreen()),
       GoRoute(
         path: '/room/:userId',

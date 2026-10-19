@@ -18,6 +18,7 @@ import '../../shared/widgets/section_title.dart';
 import '../../shared/widgets/status_chip.dart';
 import '../../shared/widgets/ui_parts.dart';
 import '../home/home_controller.dart';
+import '../legal/terms_screen.dart';
 import '../session/session_controller.dart';
 
 /// 웹 마이페이지와 같은 구성: 프로필 카드(2×2 정보, BMI, 포인트·출석), 현재 그룹 카드, 멤버 목록.
@@ -206,6 +207,7 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
                 child: const Text('회원 탈퇴'),
               ),
             ),
+          PolicyLinks(onTerms: () => context.push('/terms')),
           const SizedBox(height: AppSpacing.page),
         ],
       ),
