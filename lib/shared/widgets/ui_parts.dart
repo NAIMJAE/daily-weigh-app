@@ -166,10 +166,14 @@ class MemberRow extends StatelessWidget {
     this.isOwner = false,
     this.trailing,
     this.onTap,
+    this.markColor,
   });
 
   final String name;
   final String? subtitle;
+
+  /// 이름 앞의 작은 색 점. 홈 체중 그래프의 그 사람 선 색과 맞춘다.
+  final Color? markColor;
   final bool isMe;
   final bool isOwner;
   final Widget? trailing;
@@ -201,6 +205,13 @@ class MemberRow extends StatelessWidget {
                       runSpacing: 2,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
+                        if (markColor != null)
+                          Container(
+                            width: 8,
+                            height: 8,
+                            margin: const EdgeInsets.only(right: 2),
+                            decoration: BoxDecoration(color: markColor, shape: BoxShape.circle),
+                          ),
                         Text(name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
                         if (isMe)
                           const Text(

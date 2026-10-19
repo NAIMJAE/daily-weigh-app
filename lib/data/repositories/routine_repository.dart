@@ -212,6 +212,22 @@ class RoutineRepository {
     return [for (final row in rows as List) WorkoutSession.fromMap(Map<String, dynamic>.from(row as Map))];
   }
 
+  /// 그룹 통계용. 기간 안의 운동을 여러 사람 것까지 세트와 함께 읽는다.
+  Future<List<WorkoutSession>> fetchSessionsForUsers(
+    List<String> userIds, {
+    required String from,
+    required String to,
+  }) async {
+    if (userIds.isEmpty) return [];
+    final rows = await requireSupabase()
+        .from('workout_sessions')
+        .select('*, session_sets(*)')
+        .inFilter('user_id', userIds)
+        .gte('record_date', from)
+        .lte('record_date', to);
+    return [for (final row in rows as List) WorkoutSession.fromMap(Map<String, dynamic>.from(row as Map))];
+  }
+
   Future<void> deleteSession(String sessionId) async {
     await requireSupabase().from('workout_sessions').delete().eq('id', sessionId);
   }

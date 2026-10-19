@@ -47,6 +47,34 @@ class AuthRepository {
     await client.auth.signOut();
   }
 
+  /// 회원 탈퇴. 저장소의 내 사진 파일을 먼저 지우고, 서버 함수(delete_my_account)가 계정과 기록을 지운다.
+  /// 그룹은 나가기와 같게 처리되고(방장이면 다음 사람에게 넘김), 기록은 모두 지워진다.
+  Future<void> deleteAccount() async {
+    final client = requireSupabase();
+    final userId = client.auth.currentUser?.id;
+    if (userId == null) throw AuthException('로그인이 필요합니다.');
+
+    for (final bucket in ['body-photos', 'meal-photos']) {
+      // 한 번에 100개씩 지운다. 지워지지 않는 파일이 있어도 끝없이 돌지 않게 횟수를 묶는다.
+      for (var round = 0; round < 50; round++) {
+        final files = await client.storage.from(bucket).list(path: userId, searchOptions: const SearchOptions(limit: 100));
+        final paths = [
+          for (final file in files)
+            if (file.id != null) '$userId/${file.name}',
+        ];
+        if (paths.isEmpty) break;
+        final removed = await client.storage.from(bucket).remove(paths);
+        if (removed.isEmpty) break;
+      }
+    }
+
+    await client.rpc('delete_my_account');
+    // 서버의 계정은 이미 지워졌으니 이 기기의 로그인 정보만 지운다.
+    try {
+      await client.auth.signOut(scope: SignOutScope.local);
+    } catch (_) {}
+  }
+
   Future<Profile?> fetchMyProfile() async {
     final client = supabaseOrNull;
     final userId = client?.auth.currentUser?.id;
@@ -166,6 +194,8 @@ class AuthRepository {
     final client = requireSupabase();
     try {
       final result = await client.rpc('join_friend_group', params: {'code': code.trim()});
+      // 틀린 코드면 서버가 오류 대신 null 을 준다(틀린 횟수를 세려고).
+      if (result == null) throw AuthException('초대 코드가 올바르지 않습니다.');
       return result as String;
     } on PostgrestException catch (error) {
       if (error.code == 'PGRST202') {
@@ -173,6 +203,12 @@ class AuthRepository {
       }
       if (error.message.contains('invalid invite code')) {
         throw AuthException('초대 코드가 올바르지 않습니다.');
+      }
+      if (error.message.contains('too many invite attempts')) {
+        throw AuthException('초대 코드를 너무 많이 틀렸습니다. 한 시간 뒤에 다시 해 주세요.');
+      }
+      if (error.message.contains('banned from group')) {
+        throw AuthException('이 그룹에서 내보내져서 다시 들어갈 수 없습니다.');
       }
       if (error.message.contains('group is full')) {
         throw AuthException('그룹이 가득 찼습니다. 최대 ${AppConstants.maxGroupMembers}명입니다.');

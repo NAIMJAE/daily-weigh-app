@@ -18,6 +18,7 @@ import '../../shared/widgets/section_title.dart';
 import '../../shared/widgets/status_chip.dart';
 import '../../shared/widgets/ui_parts.dart';
 import '../home/home_controller.dart';
+import '../legal/terms_screen.dart';
 import '../session/session_controller.dart';
 
 /// 웹 마이페이지와 같은 구성: 프로필 카드(2×2 정보, BMI, 포인트·출석), 현재 그룹 카드, 멤버 목록.
@@ -73,6 +74,7 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
               memberCount: members.length,
               onRename: group.isPersonal ? () => _renameGroup(group) : null,
               onLeave: group.isPersonal || myId == null ? null : () => _leave(group, myId, members.length),
+              onRotateCode: isOwner && !group.isPersonal ? () => _rotateCode(group) : null,
             ),
             const SizedBox(height: AppSpacing.section),
             AppCard(
@@ -175,7 +177,7 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
                         controller: _invite,
                         textCapitalization: TextCapitalization.characters,
                         style: AppText.number(size: 14, weight: FontWeight.w600),
-                        decoration: const InputDecoration(hintText: '예: QYC56Q'),
+                        decoration: const InputDecoration(hintText: '예: 4ST854CH'),
                       ),
                     ),
                     const SizedBox(width: AppSpacing.gap),
@@ -196,6 +198,16 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
             icon: const Icon(Icons.logout, size: 16),
             label: const Text('로그아웃'),
           ),
+          const SizedBox(height: AppSpacing.gap),
+          if (profile != null)
+            Center(
+              child: TextButton(
+                onPressed: _busy ? null : () => _deleteAccount(profile.username),
+                style: TextButton.styleFrom(foregroundColor: AppColors.faint),
+                child: const Text('회원 탈퇴'),
+              ),
+            ),
+          PolicyLinks(onTerms: () => context.push('/terms')),
           const SizedBox(height: AppSpacing.page),
         ],
       ),
@@ -209,6 +221,8 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
   }
 
   Future<void> _createGroup() async {
+    // 저장 뒤 화면이 다시 그려져도 키보드가 다시 뜨지 않게 입력 칸에서 커서를 뺀다.
+    FocusScope.of(context).unfocus();
     setState(() => _busy = true);
     try {
       await ref.read(authRepositoryProvider).createFriendGroup(_groupName.text);
@@ -222,6 +236,7 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
   }
 
   Future<void> _join() async {
+    FocusScope.of(context).unfocus();
     setState(() => _busy = true);
     try {
       await ref.read(authRepositoryProvider).joinFriendGroup(_invite.text);
@@ -300,7 +315,7 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
   Future<void> _kick(Group group, String ownerId, GroupMate member) async {
     final ok = await _confirm(
       '멤버 내보내기',
-      '${member.profile.nickname}님을 ${group.name}에서 내보낼까요? 기록은 지워지지 않고, 초대 코드로 다시 들어올 수 있습니다.',
+      '${member.profile.nickname}님을 ${group.name}에서 내보낼까요? 기록은 지워지지 않고, 초대 코드로도 다시 들어올 수 없습니다.',
       '내보내기',
     );
     if (!ok) return;
@@ -312,6 +327,40 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
     if (!done) return;
     await _run(() => ref.read(sessionProvider.notifier).reload());
     ref.invalidate(homeSnapshotProvider);
+  }
+
+  Future<void> _deleteAccount(String username) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => _DeleteAccountDialog(username: username),
+    );
+    if (ok != true || !mounted) return;
+    setState(() => _busy = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref.read(sessionProvider.notifier).deleteAccount();
+      messenger.showSnackBar(const SnackBar(content: Text('탈퇴했습니다. 그동안 함께해 주셔서 고마워요.')));
+    } catch (error) {
+      if (mounted) {
+        setState(() => _busy = false);
+        showErrorSnack(context, error);
+      }
+    }
+  }
+
+  Future<void> _rotateCode(Group group) async {
+    final ok = await _confirm(
+      '초대 코드 바꾸기',
+      '새 코드를 만들면 지금 코드로는 더 들어올 수 없습니다. 이미 들어온 멤버는 그대로입니다.',
+      '바꾸기',
+    );
+    if (!ok) return;
+    final done = await _run(() => ref.read(groupRepositoryProvider).rotateInviteCode(group.id));
+    if (!done) return;
+    await _run(() => ref.read(sessionProvider.notifier).reload());
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('초대 코드를 새로 만들었습니다.')));
+    }
   }
 
   Future<void> _leave(Group group, String userId, int memberCount) async {
@@ -507,12 +556,15 @@ class _Stat extends StatelessWidget {
 }
 
 class _GroupCard extends StatelessWidget {
-  const _GroupCard({required this.group, required this.memberCount, this.onRename, this.onLeave});
+  const _GroupCard({required this.group, required this.memberCount, this.onRename, this.onLeave, this.onRotateCode});
 
   final Group group;
   final int memberCount;
   final VoidCallback? onRename;
   final VoidCallback? onLeave;
+
+  /// 방장만 있다. 강퇴했거나 코드가 새어 나갔을 때 코드를 바꾼다.
+  final VoidCallback? onRotateCode;
 
   @override
   Widget build(BuildContext context) {
@@ -577,7 +629,19 @@ class _GroupCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 6),
-            const Text('친구가 마이페이지에서 이 코드를 입력하면 이 그룹에 합류합니다.', style: AppText.caption),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text('친구가 마이페이지에서 이 코드를 입력하면 이 그룹에 합류합니다.', style: AppText.caption),
+                ),
+                if (onRotateCode != null)
+                  TextButton(
+                    style: TextButton.styleFrom(minimumSize: const Size(0, 30), padding: const EdgeInsets.symmetric(horizontal: 8)),
+                    onPressed: onRotateCode,
+                    child: const Text('코드 바꾸기'),
+                  ),
+              ],
+            ),
           ],
           if (onRename != null || onLeave != null) ...[
             const SizedBox(height: 8),
@@ -660,6 +724,63 @@ class _SmallDangerButton extends StatelessWidget {
       ),
       onPressed: onTap,
       child: Text(label),
+    );
+  }
+}
+
+/// 탈퇴 확인. 지워지는 것을 알리고, 아이디를 똑같이 입력해야 탈퇴 버튼이 켜진다.
+class _DeleteAccountDialog extends StatefulWidget {
+  const _DeleteAccountDialog({required this.username});
+
+  final String username;
+
+  @override
+  State<_DeleteAccountDialog> createState() => _DeleteAccountDialogState();
+}
+
+class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
+  final _typed = TextEditingController();
+
+  @override
+  void dispose() {
+    _typed.dispose();
+    super.dispose();
+  }
+
+  bool get _matches => _typed.text.trim().toLowerCase() == widget.username;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('회원 탈퇴'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '체중, 눈바디·식단 사진, 운동, 루틴, 댓글, 포인트와 스트릭이 모두 지워지고 되돌릴 수 없습니다. '
+            '친구 그룹에서는 나가게 되고, 방장이면 다음 멤버가 방장이 됩니다.',
+            style: AppText.body,
+          ),
+          const SizedBox(height: 12),
+          Text('계속하려면 아이디 ${widget.username}을(를) 입력하세요.', style: AppText.label),
+          const SizedBox(height: 6),
+          TextField(
+            controller: _typed,
+            autocorrect: false,
+            decoration: InputDecoration(hintText: widget.username),
+            onChanged: (_) => setState(() {}),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('취소')),
+        TextButton(
+          onPressed: _matches ? () => Navigator.pop(context, true) : null,
+          style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+          child: const Text('탈퇴하기'),
+        ),
+      ],
     );
   }
 }

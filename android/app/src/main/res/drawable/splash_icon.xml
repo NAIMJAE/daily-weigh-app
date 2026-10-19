@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 안드로이드 12 이상 스플래시 아이콘. 288 칸의 지름 192 원 안에 128 크기 아이콘(splash_logo와 같은 모양)을 가운데 둔다.
+     시스템이 이 칸을 줄여 그리므로 inset 같은 고정 dp 여백 대신 벡터 안에서 비율로 비운다 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="288dp"
+    android:height="288dp"
+    android:viewportWidth="288"
+    android:viewportHeight="288">
+    <group
+        android:translateX="80"
+        android:translateY="80"
+        android:scaleX="1.185185"
+        android:scaleY="1.185185">
+        <path
+            android:pathData="M24,0h60a24,24 0 0,1 24,24v60a24,24 0 0,1 -24,24h-60a24,24 0 0,1 -24,-24v-60a24,24 0 0,1 24,-24z"
+            android:fillColor="#FF4D00" />
+        <path
+            android:pathData="M24,68a30,30 0 0,1 60,0"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="8"
+            android:strokeLineCap="round" />
+        <path
+            android:pathData="M54,68L68,46"
+            android:strokeColor="#111111"
+            android:strokeWidth="6"
+            android:strokeLineCap="round" />
+        <path
+            android:pathData="M47,68a7,7 0 1,0 14,0a7,7 0 1,0 -14,0z"
+            android:fillColor="#111111" />
+        <path
+            android:pathData="M33,80h42a3,3 0 0,1 0,6h-42a3,3 0 0,1 0,-6z"
+            android:fillColor="#FFFFFF"
+            android:fillAlpha="0.55" />
+    </group>
+</vector>

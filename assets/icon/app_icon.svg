@@ -1,0 +1,8 @@
+<!-- 매일재라 앱 아이콘 원본 (A안: 눈금 저울). 안드로이드 리소스는 이 파일을 기준으로 만든다. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 108 108">
+  <rect width="108" height="108" rx="24" fill="#FF4D00"/>
+  <path d="M24 68a30 30 0 0 1 60 0" fill="none" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round"/>
+  <path d="M54 68L68 46" stroke="#111111" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="54" cy="68" r="7" fill="#111111"/>
+  <rect x="30" y="80" width="48" height="6" rx="3" fill="#FFFFFF" fill-opacity="0.55"/>
+</svg>

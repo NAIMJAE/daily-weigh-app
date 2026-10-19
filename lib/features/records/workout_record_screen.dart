@@ -11,7 +11,6 @@ import '../workout/routine_tab.dart';
 import '../workout/session_detail_card.dart';
 import '../workout/workout_controller.dart';
 import 'write/write_parts.dart';
-import '../workout/today_routine_card.dart';
 import '../workout/workout_start.dart';
 import 'record_browser.dart';
 import 'record_type.dart';
@@ -40,11 +39,14 @@ class WorkoutRecordScreen extends ConsumerWidget {
           ),
         ),
         body: const TabBarView(children: [_HistoryTab(), RoutineTab()]),
-        bottomNavigationBar: AddRecordBar(
-          label: active == null ? '운동 기록하기' : '진행 중인 운동 이어 하기',
-          icon: active == null ? Icons.add : Icons.play_arrow,
-          onPressed: () => showWorkoutStartSheet(context, ref),
-        ),
+        // 진행 중인 운동은 하단 탭 위의 이어 하기 시트가 맡는다.
+        bottomNavigationBar: active == null
+            ? AddRecordBar(
+                label: '운동 기록하기',
+                icon: Icons.add,
+                onPressed: () => showWorkoutStartSheet(context, ref),
+              )
+            : null,
       ),
     );
   }
@@ -82,7 +84,6 @@ class _HistoryTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final records = ref.watch(myDailyRecordsProvider);
-    final active = ref.watch(activeWorkoutProvider).value;
     final sessionsByDate = ref.watch(mySessionsByDateProvider).value ?? const <String, List<WorkoutSession>>{};
     return records.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -90,10 +91,6 @@ class _HistoryTab extends ConsumerWidget {
       data: (byDate) => ListView(
         padding: const EdgeInsets.all(AppSpacing.page),
         children: [
-          if (active != null) ...[
-            ResumeWorkoutBox(workout: active),
-            const SizedBox(height: AppSpacing.section),
-          ],
           RecordBrowser(
             emptyIcon: RecordType.workout.icon,
             countLabel: '운동한 날',

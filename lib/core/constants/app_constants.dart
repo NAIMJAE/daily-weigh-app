@@ -8,6 +8,9 @@ class AppConstants {
   static const minPasswordLength = 6;
   static const photoMaxDimension = 960;
   static const photoQuality = 80;
+  static const operatorName = 'NAIMJAE';
+  static const contactEmail = 'skdlawo5985@gmail.com';
+  static const privacyPolicyUrl = 'https://sites.google.com/view/dailyweigh/%ED%99%88';
 }
 
 class PointRules {

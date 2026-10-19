@@ -1,12 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Modify this file to customize your launch splash screen -->
+<!-- 안드로이드 12 미만 스플래시: 흰 바탕 가운데에 앱 아이콘 -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@android:color/white" />
-
-    <!-- You can insert your own image assets here -->
-    <!-- <item>
-        <bitmap
-            android:gravity="center"
-            android:src="@mipmap/launch_image" />
-    </item> -->
+    <item
+        android:width="128dp"
+        android:height="128dp"
+        android:gravity="center"
+        android:drawable="@drawable/splash_logo" />
 </layer-list>

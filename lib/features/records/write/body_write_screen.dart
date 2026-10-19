@@ -120,10 +120,8 @@ class _BodyWriteScreenState extends ConsumerState<BodyWriteScreen> {
         newPhotoPath: _pickedPath,
         removePhoto: _removePhoto && _pickedPath == null,
       );
-      await afterRecordSaved(ref);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('눈바디 기록을 저장했어요.')));
-      Navigator.pop(context);
+      await closeAfterRecordSaved(context, message: '눈바디 기록을 저장했어요.');
     } catch (error) {
       if (mounted) setState(() => _error = friendlyError(error));
     } finally {

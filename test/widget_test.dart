@@ -10,6 +10,9 @@ import 'package:daily_weigh/data/models/profile.dart';
 import 'package:daily_weigh/data/models/routine_draft.dart';
 import 'package:daily_weigh/data/models/workout_routine.dart';
 import 'package:daily_weigh/features/records/write/meal_write_screen.dart';
+import 'package:daily_weigh/features/stats/group_stats.dart';
+import 'package:daily_weigh/features/stats/record_stats.dart';
+import 'package:flutter/material.dart' show DateTimeRange;
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -137,8 +140,11 @@ void main() {
     expect(record.isLogged, isTrue);
   });
 
-  test('식단 태그는 알려진 값만 읽는다', () {
-    expect(mealTagsFrom(['home', 'cheat', 'unknown']), {MealTag.home, MealTag.cheat});
+  test('식사 종류는 알려진 값만 읽고, 없으면 예전 첫 태그를 쓴다', () {
+    expect(mealCategoryFrom('delivery'), MealCategory.delivery);
+    expect(mealCategoryFrom('unknown'), isNull);
+    expect(mealCategoryFrom(null, ['cheat', 'home']), MealCategory.cheat);
+    expect(mealCategoryFrom(null, null), isNull);
   });
 
   test('휴대폰 날짜가 서버보다 늦어 마지막 출석이 내일로 보여도 스트릭은 이어진다', () {
@@ -517,5 +523,127 @@ void main() {
       final fresh = ItemDraft.fresh(bench);
       expect(fresh.toRow(dayId: 'a', position: 1)['weight_updated_at'], isNull);
     });
+  });
+
+  WorkoutSession volumeSession(String date, double kg, int reps) =>
+      WorkoutSession(
+        id: date,
+        userId: 'u',
+        recordDate: date,
+        durationMinutes: 40,
+        sets: [
+          SessionSet(
+            exerciseName: '스쿼트',
+            itemPosition: 0,
+            setNumber: 1,
+            weightKg: kg,
+            reps: reps,
+          ),
+        ],
+      );
+
+  test('주간 볼륨은 월요일부터 7칸, 운동 없는 날은 0', () {
+    final buckets = volumeBuckets(
+      [
+        volumeSession('2026-10-13', 100, 5),
+        volumeSession('2026-10-13', 50, 10),
+        volumeSession('2026-10-18', 60, 10),
+      ],
+      unit: StatsUnit.day,
+      range: DateTimeRange(
+        start: DateTime(2026, 10, 12),
+        end: DateTime(2026, 10, 18),
+      ),
+    );
+    expect(buckets.length, 7);
+    expect(buckets[1].volume, 1000);
+    expect(buckets[0].volume, 0);
+    expect(buckets.last.volume, 600);
+    expect(buckets.first.label, '10.12');
+  });
+
+  test('월간 볼륨은 주 칸으로 묶고, 첫 칸 이름은 그 달 1일이다', () {
+    final buckets = volumeBuckets(
+      [volumeSession('2026-10-01', 100, 1), volumeSession('2026-10-31', 20, 1)],
+      unit: StatsUnit.week,
+      range: DateTimeRange(
+        start: DateTime(2026, 10, 1),
+        end: DateTime(2026, 10, 31),
+      ),
+    );
+    expect(buckets.first.label, '10.1');
+    expect(buckets.first.start, DateTime(2026, 9, 28));
+    expect(buckets.length, 5);
+    expect(buckets.last.volume, 20);
+  });
+
+  test('해를 넘기는 기간의 달 칸에는 연도를 붙인다', () {
+    final buckets = volumeBuckets(
+      [volumeSession('2025-11-03', 10, 10)],
+      unit: StatsUnit.month,
+      range: DateTimeRange(start: DateTime(2025, 11, 1), end: DateTime(2026, 2, 5)),
+    );
+    expect(
+      [for (final b in buckets) b.label],
+      ['25.11', '25.12', '26.1', '26.2'],
+    );
+    expect(formatKg(12345.4), '12,345kg');
+  });
+
+  test('식사 종류 비율은 많은 순서이고 종류 없는 끼니는 세지 않는다', () {
+    MealEntry meal(MealCategory? category) => MealEntry(
+      id: 'm',
+      userId: 'u',
+      recordDate: '2026-10-18',
+      slot: MealSlot.lunch,
+      category: category,
+    );
+    final counts = mealCategoryCounts([
+      meal(MealCategory.delivery),
+      meal(MealCategory.home),
+      meal(MealCategory.home),
+      meal(null),
+      meal(MealCategory.eatout),
+    ]);
+    expect(counts, [
+      (MealCategory.home, 2),
+      (MealCategory.eatout, 1),
+      (MealCategory.delivery, 1),
+    ]);
+  });
+
+  test('직접 고른 기간은 30일까지로 자른다', () {
+    final short = clampCustomRange(DateTimeRange(start: DateTime(2026, 10, 1), end: DateTime(2026, 10, 30)));
+    expect(short.end, DateTime(2026, 10, 30));
+    final long = clampCustomRange(DateTimeRange(start: DateTime(2026, 9, 1), end: DateTime(2026, 10, 18)));
+    expect(long.start, DateTime(2026, 9, 1));
+    expect(long.end, DateTime(2026, 9, 30));
+  });
+
+  test('체중은 칸마다 사람별로 평균 내고 칸 시작일에 둔다', () {
+    DailyRecord weigh(String user, String date, double kg) =>
+        DailyRecord.fromMap({'id': '$user$date', 'user_id': user, 'record_date': date, 'weight': kg});
+    final averaged = averageWeights([
+      weigh('a', '2026-10-13', 80),
+      weigh('a', '2026-10-15', 79),
+      weigh('b', '2026-10-14', 60),
+      weigh('a', '2026-10-20', 78.4),
+    ], StatsUnit.week);
+    expect([for (final r in averaged) (r.userId, r.recordDate, r.weight)], [
+      ('a', '2026-10-12', 79.5),
+      ('b', '2026-10-12', 60.0),
+      ('a', '2026-10-19', 78.4),
+    ]);
+    final range = DateTimeRange(start: DateTime(2026, 10, 1), end: DateTime(2026, 10, 31));
+    expect(bucketLabel(DateTime(2026, 9, 28), StatsUnit.week, range), '10.1');
+    expect(bucketLabel(DateTime(2026, 10, 1), StatsUnit.month, range), '10월');
+  });
+
+  test('멤버 볼륨은 운동한 칸만 점이 되고, 증가율은 한 번 평균으로 첫 운동 칸이 0%다', () {
+    VolumeBucket b(double v, int n) => VolumeBucket(start: DateTime(2026), label: '', volume: v, sessions: n);
+    // 둘째 칸은 총 볼륨이 세 배지만 운동도 세 번이라 한 번 평균은 그대로다.
+    final buckets = [b(0, 0), b(2000, 1), b(0, 0), b(6000, 3), b(3000, 1)];
+    expect([for (final s in volumeSpots(buckets, growth: false)) (s.x, s.y)], [(1.0, 2000.0), (3.0, 6000.0), (4.0, 3000.0)]);
+    expect([for (final s in volumeSpots(buckets, growth: true)) (s.x, s.y)], [(1.0, 0.0), (3.0, 0.0), (4.0, 50.0)]);
   });
 }

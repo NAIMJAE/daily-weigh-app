@@ -17,7 +17,9 @@ import '../../shared/widgets/status_chip.dart';
 import '../../shared/widgets/ui_parts.dart';
 import '../home/home_controller.dart';
 import '../record/record_sheet.dart';
+import '../safety/safety_controller.dart';
 import '../session/session_controller.dart';
+import '../../data/repositories/safety_repository.dart';
 import '../workout/member_workout_card.dart';
 import 'comment_sheet.dart';
 
@@ -100,15 +102,36 @@ class _MemberRoomScreenState extends ConsumerState<MemberRoomScreen> {
     });
     final session = ref.watch(sessionProvider).value;
     final mine = session?.userId == widget.userId;
+    // 차단한 멤버의 사진은 숨긴다. 체중과 운동 같은 숫자 기록은 그대로 보인다.
+    final blocked = ref.watch(blockedUsersProvider).value?.contains(widget.userId) ?? false;
+    final profile = _profile;
     return Scaffold(
       appBar: AppBar(
         title: Text(_profile?.nickname ?? '방'),
         actions: [
-          IconButton(
-            tooltip: '사진 달력',
-            onPressed: () => context.push('/calendar/${widget.userId}'),
-            icon: const Icon(Icons.calendar_month),
-          ),
+          if (!blocked)
+            IconButton(
+              tooltip: '사진 달력',
+              onPressed: () => context.push('/calendar/${widget.userId}'),
+              icon: const Icon(Icons.calendar_month),
+            ),
+          if (!mine && profile != null)
+            PopupMenuButton<String>(
+              tooltip: '더 보기',
+              onSelected: (action) async {
+                if (action == 'report') {
+                  await showReportSheet(context, targetUserId: widget.userId, target: ReportTarget.user);
+                } else if (action == 'block') {
+                  await confirmBlock(context, ref, userId: widget.userId, nickname: profile.nickname);
+                } else if (action == 'unblock') {
+                  await unblock(context, ref, userId: widget.userId, nickname: profile.nickname);
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(value: 'report', child: Text('신고하기')),
+                PopupMenuItem(value: blocked ? 'unblock' : 'block', child: Text(blocked ? '차단 풀기' : '차단하기')),
+              ],
+            ),
         ],
       ),
       body: _loading
@@ -153,7 +176,28 @@ class _MemberRoomScreenState extends ConsumerState<MemberRoomScreen> {
                         ],
                       ),
                       const SizedBox(height: 14),
-                      if (mine)
+                      if (blocked)
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppColors.mutedBg,
+                            borderRadius: BorderRadius.circular(AppRadius.tile),
+                          ),
+                          child: Row(
+                            children: [
+                              const Expanded(
+                                child: Text('차단한 멤버예요. 사진과 댓글이 보이지 않아요.', style: AppText.label),
+                              ),
+                              TextButton(
+                                onPressed: profile == null
+                                    ? null
+                                    : () => unblock(context, ref, userId: widget.userId, nickname: profile.nickname),
+                                child: const Text('차단 풀기'),
+                              ),
+                            ],
+                          ),
+                        )
+                      else if (mine)
                         FilledButton.icon(
                           onPressed: () => context.push('/overlay/${widget.userId}'),
                           icon: const Icon(Icons.compare_outlined, size: 18),
@@ -217,7 +261,7 @@ class _MemberRoomScreenState extends ConsumerState<MemberRoomScreen> {
                   const Text('지금 그룹의 멤버가 아닙니다.', style: AppText.label)
                 else if (_records.isEmpty)
                   const Text('아직 기록이 없습니다.', style: AppText.label),
-                for (final record in _records) _RecordTile(record: record, mine: mine),
+                for (final record in _records) _RecordTile(record: record, mine: mine, hidePhotos: blocked),
               ],
             ),
     );
@@ -225,10 +269,13 @@ class _MemberRoomScreenState extends ConsumerState<MemberRoomScreen> {
 }
 
 class _RecordTile extends StatelessWidget {
-  const _RecordTile({required this.record, required this.mine});
+  const _RecordTile({required this.record, required this.mine, this.hidePhotos = false});
 
   final DailyRecord record;
   final bool mine;
+
+  /// 차단한 멤버의 방에서는 사진(과 그 댓글)을 보이지 않는다.
+  final bool hidePhotos;
 
   // 사진은 글 아래 줄에 둔다. 오른쪽에 두면 좁은 화면에서 날짜가 '2026-10-1 / 6'처럼 쪼개진다.
   @override
@@ -238,7 +285,7 @@ class _RecordTile extends StatelessWidget {
       if (record.workoutSummary.isNotEmpty) record.workoutSummary,
       if (record.memo != null && record.memo!.isNotEmpty) record.memo!,
     ].join(' · ');
-    final hasPhoto = record.bodyPhotoUrl != null || record.mealPhotoUrl != null;
+    final hasPhoto = !hidePhotos && (record.bodyPhotoUrl != null || record.mealPhotoUrl != null);
     final editable = mine && record.recordDate == localDateString();
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.gap),

@@ -136,6 +136,20 @@ class SessionController extends AsyncNotifier<SessionState> {
     state = const AsyncData(SessionState());
   }
 
+  /// 회원 탈퇴. 이 기기에 남은 이 계정의 설정(마지막 그룹, 진행 중인 운동)도 지운다.
+  Future<void> deleteAccount() async {
+    final userId = state.value?.userId;
+    await ref.read(authRepositoryProvider).deleteAccount();
+    if (userId != null) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove(_groupKey(userId));
+        await prefs.remove('active_workout:$userId');
+      } catch (_) {}
+    }
+    state = const AsyncData(SessionState());
+  }
+
   Future<void> completeOnboarding({
     required double height,
     required double startWeight,
