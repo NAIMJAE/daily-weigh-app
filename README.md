@@ -9,7 +9,7 @@ Flutter 3.47.7 / Dart 3.13.5, 안드로이드 전용. 구현 기준은 `docs/v1-
 1. **앱 전용 Supabase 프로젝트** URL과 anon/publishable 키  
    웹 MVP 프로젝트 키를 넣지 마세요. 기획서대로 DB는 나눕니다.
 
-Play Console 앱 ID를 이미 만들었다면 `kr.dailyweigh.daily_weigh` 대신 그 값을 알려주세요.
+Android 앱 ID는 Play Console에서 정한 `com.naimjae.dailyweigh`입니다. 바꿀 수 없으니 그대로 두세요.
 
 ## 로컬 실행
 

@@ -1,4 +1,4 @@
-package kr.dailyweigh.daily_weigh
+package com.naimjae.dailyweigh
 
 import io.flutter.embedding.android.FlutterActivity
 
